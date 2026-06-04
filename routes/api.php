@@ -2,10 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
+Route::get('/health', function () {
     return response()->json([
         'status' => 'ok',
         'service' => config('app.name'),
-        'api_health' => url('/api/health'),
     ]);
 });

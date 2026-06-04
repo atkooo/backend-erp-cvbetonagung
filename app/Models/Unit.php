@@ -18,4 +18,9 @@ class Unit extends Model
     {
         return $this->hasMany(Product::class);
     }
+
+    public function bomItems(): HasMany
+    {
+        return $this->hasMany(BomItem::class);
+    }
 }

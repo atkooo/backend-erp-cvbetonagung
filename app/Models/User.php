@@ -71,6 +71,16 @@ class User extends Authenticatable
         return $this->hasMany(Payment::class, 'verified_by');
     }
 
+    public function createdProductReturns(): HasMany
+    {
+        return $this->hasMany(ProductReturn::class, 'created_by');
+    }
+
+    public function verifiedProductionWorkLogs(): HasMany
+    {
+        return $this->hasMany(ProductionWorkLog::class, 'verified_by');
+    }
+
     /**
      * Get the attributes that should be cast.
      *

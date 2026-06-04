@@ -66,6 +66,11 @@ class Project extends Model
         return $this->hasMany(ProjectTermin::class);
     }
 
+    public function productionWorkOrders(): HasMany
+    {
+        return $this->hasMany(ProductionWorkOrder::class);
+    }
+
     protected function casts(): array
     {
         return [

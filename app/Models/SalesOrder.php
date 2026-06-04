@@ -51,6 +51,16 @@ class SalesOrder extends Model
         return $this->hasMany(Invoice::class);
     }
 
+    public function productReturns(): HasMany
+    {
+        return $this->hasMany(ProductReturn::class);
+    }
+
+    public function productionWorkOrders(): HasMany
+    {
+        return $this->hasMany(ProductionWorkOrder::class);
+    }
+
     protected function casts(): array
     {
         return [

@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
             ErpSalesSeeder::class,
             ErpProjectSeeder::class,
             ErpFinanceSeeder::class,
+            ErpReturnSeeder::class,
+            ErpProductionSeeder::class,
         ]);
     }
 }

@@ -74,6 +74,31 @@ class Product extends Model
         return $this->hasMany(PurchaseOrderItem::class);
     }
 
+    public function returnItems(): HasMany
+    {
+        return $this->hasMany(ReturnItem::class);
+    }
+
+    public function productionWorkOrders(): HasMany
+    {
+        return $this->hasMany(ProductionWorkOrder::class);
+    }
+
+    public function productionWorkOrderItems(): HasMany
+    {
+        return $this->hasMany(ProductionWorkOrderItem::class);
+    }
+
+    public function boms(): HasMany
+    {
+        return $this->hasMany(Bom::class);
+    }
+
+    public function bomItemsAsComponent(): HasMany
+    {
+        return $this->hasMany(BomItem::class, 'component_product_id');
+    }
+
     protected function casts(): array
     {
         return [

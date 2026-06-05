@@ -7,10 +7,24 @@ Target: implement `docs/erp_dbdiagram.dbml` into this Laravel backend and keep t
 - Framework: Laravel 13, PHP 8.3.
 - Current database config: SQLite in `.env` and `.env.example`.
 - DBML target database: PostgreSQL.
-- Existing app is still Laravel skeleton:
-  - default `users`, `password_reset_tokens`, `sessions`, `cache`, and `jobs` migrations.
-  - no API routes, controllers, resources, services, policies, or module models yet.
-  - Vite/frontend skeleton still exists in `resources/`, `package.json`, and `vite.config.js`.
+- Backend foundation has started:
+  - `routes/api.php` is enabled.
+  - `/api/health` returns JSON status.
+  - root `/` returns JSON backend status.
+- ERP foundation has started:
+  - DBML tables have been implemented as Laravel migrations.
+  - ERP domain models and relationships exist.
+  - baseline ERP seeders and relationship tests exist.
+  - identity/RBAC CRUD API has started under `/api/identity/{resource}`.
+  - master data CRUD API has started under `/api/master-data/{resource}`.
+  - inventory CRUD API has started under `/api/inventory/{resource}`.
+  - sales CRUD API has started under `/api/sales/{resource}`.
+  - purchasing/returns CRUD API has started under `/api/purchasing/{resource}`.
+  - projects CRUD API has started under `/api/projects/{resource}`.
+  - finance CRUD API has started under `/api/finance/{resource}`.
+  - production CRUD API has started under `/api/production/{resource}`.
+  - support/reporting CRUD API has started under `/api/support/{resource}`.
+- Vite/frontend skeleton still exists in `resources/`, `package.json`, and `vite.config.js`.
 
 ## Backend-Only Direction
 
@@ -198,6 +212,63 @@ Verification:
 ### Phase 4 - API Layer
 
 Goal: provide CRUD APIs by module.
+
+Status:
+
+- Started identity/RBAC API:
+  - `roles`
+  - `users`
+  - `employees`
+  - `permissions`
+  - `role-permissions`
+- Started master data API:
+  - `customers`
+  - `suppliers`
+  - `product-categories`
+  - `units`
+  - `warehouses`
+  - `storage-locations`
+  - `products`
+  - `company-settings`
+- Started inventory API:
+  - `product-stocks`
+  - `stock-movements`
+  - `stock-opname-sessions`
+  - `stock-opname-items`
+  - `approval-requests`
+- Started sales API:
+  - `quotations`
+  - `quotation-items`
+  - `sales-orders`
+  - `sales-order-items`
+  - `delivery-orders`
+  - `delivery-order-items`
+- Started purchasing/returns API:
+  - `purchase-orders`
+  - `purchase-order-items`
+  - `supplier-payables`
+  - `returns`
+  - `return-items`
+- Started projects API:
+  - `projects`
+  - `project-timelines`
+  - `project-documents`
+  - `project-budget-items`
+- Started finance API:
+  - `invoices`
+  - `invoice-items`
+  - `payments`
+  - `project-termins`
+- Started production API:
+  - `work-orders`
+  - `work-order-items`
+  - `work-logs`
+  - `boms`
+  - `bom-items`
+- Started support/reporting API:
+  - `audit-logs`
+  - `reminders`
+  - `document-exports`
 
 Recommended order:
 

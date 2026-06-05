@@ -2,22 +2,22 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\PurchasingRequest;
+use App\Http\Requests\Api\ReceivePurchaseOrderRequest;
 use App\Models\ProductReturn;
+use App\Models\ProductStock;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\ReturnItem;
+use App\Models\StockMovement;
 use App\Models\SupplierPayable;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
-class PurchasingController extends Controller
+class PurchasingController extends ApiResourceController
 {
     /**
      * @var array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
@@ -55,92 +55,118 @@ class PurchasingController extends Controller
         ],
     ];
 
+    /**
+     * @return array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
+     */
+    protected function resources(): array
+    {
+        return self::RESOURCES;
+    }
+
     public function index(Request $request, string $resource): JsonResponse
     {
-        $config = $this->resourceConfig($resource);
-        $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
-        $sort = $this->sortColumn($request, $config);
-        $direction = $request->string('direction')->lower()->value() === 'desc' ? 'desc' : 'asc';
-
-        $query = $this->query($config);
-        $this->applyFilters($query, $request, $config);
-
-        $paginator = $query
-            ->orderBy($sort, $direction)
-            ->paginate($perPage)
-            ->withQueryString();
-
-        return response()->json([
-            'data' => $paginator->items(),
-            'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'last_page' => $paginator->lastPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-            ],
-        ]);
+        return $this->indexResource($request, $resource);
     }
 
     public function store(PurchasingRequest $request, string $resource): JsonResponse
     {
-        $config = $this->resourceConfig($resource);
-        $modelClass = $config['model'];
-        $model = $modelClass::query()->create($request->validated());
-
-        return response()->json(['data' => $model->fresh($config['relations'] ?? [])], 201);
+        return $this->storeResource($resource, $request->validated());
     }
 
     public function show(string $resource, string $id): JsonResponse
     {
-        $config = $this->resourceConfig($resource);
-
-        return response()->json(['data' => $this->findModel($config, $id)]);
+        return $this->showResource($resource, $id);
     }
 
     public function update(PurchasingRequest $request, string $resource, string $id): JsonResponse
     {
-        $config = $this->resourceConfig($resource);
-        $model = $this->findModel($config, $id);
-
-        $model->fill($request->validated());
-        $model->save();
-
-        return response()->json(['data' => $model->fresh($config['relations'] ?? [])]);
+        return $this->updateResource($resource, $id, $request->validated());
     }
 
     public function destroy(string $resource, string $id): JsonResponse|Response
     {
-        $config = $this->resourceConfig($resource);
-        $model = $this->findModel($config, $id);
+        return $this->destroyResource($resource, $id);
+    }
 
-        try {
-            $model->delete();
-        } catch (QueryException) {
-            return response()->json([
-                'message' => 'Record cannot be deleted because it is referenced by other ERP data.',
-            ], 409);
+    public function receivePurchaseOrder(ReceivePurchaseOrderRequest $request, string $id): JsonResponse
+    {
+        $validated = $request->validated();
+
+        $purchaseOrder = DB::transaction(function () use ($id, $validated): PurchaseOrder {
+            $purchaseOrder = PurchaseOrder::query()
+                ->with('items')
+                ->lockForUpdate()
+                ->whereKey($id)
+                ->firstOrFail();
+
+            abort_if($purchaseOrder->items->isEmpty(), 422, 'Purchase order must have at least one item before receiving.');
+            abort_if($purchaseOrder->status === 'cancelled', 422, 'Cancelled purchase order cannot be received.');
+            abort_if($purchaseOrder->status === 'fully_received', 409, 'Purchase order has already been fully received.');
+
+            foreach ($purchaseOrder->items as $item) {
+                $remainingQty = (float) $item->quantity - (float) $item->received_qty;
+
+                if ($remainingQty <= 0) {
+                    continue;
+                }
+
+                $stock = ProductStock::query()->firstOrNew([
+                    'product_id' => $item->product_id,
+                    'location_id' => $validated['to_location_id'],
+                ]);
+
+                $stock->quantity = (float) ($stock->quantity ?? 0) + $remainingQty;
+                $stock->save();
+
+                $item->forceFill(['received_qty' => $item->quantity])->save();
+
+                StockMovement::query()->create([
+                    'product_id' => $item->product_id,
+                    'from_location_id' => null,
+                    'to_location_id' => $validated['to_location_id'],
+                    'type' => 'in',
+                    'quantity' => $remainingQty,
+                    'reference_type' => 'purchase_order',
+                    'reference_id' => $purchaseOrder->id,
+                    'reference_number' => $purchaseOrder->po_number,
+                    'handled_by' => $validated['handled_by'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                    'movement_at' => $validated['movement_at'],
+                ]);
+            }
+
+            $purchaseOrder->forceFill([
+                'status' => $this->purchaseOrderStatusFor($purchaseOrder->items()->get()),
+            ])->save();
+
+            return $purchaseOrder;
+        });
+
+        return response()->json([
+            'data' => $purchaseOrder->fresh(['supplier', 'items.product', 'supplierPayables']),
+        ]);
+    }
+
+    private function purchaseOrderStatusFor($items): string
+    {
+        $totalQty = 0.0;
+        $receivedQty = 0.0;
+
+        foreach ($items as $item) {
+            $totalQty += (float) $item->quantity;
+            $receivedQty += (float) $item->received_qty;
         }
 
-        return response()->noContent();
+        if ($receivedQty <= 0) {
+            return 'ordered';
+        }
+
+        return $receivedQty >= $totalQty ? 'fully_received' : 'partially_received';
     }
 
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function query(array $config): Builder
+    protected function filterableColumns(): array
     {
-        /** @var class-string<Model> $modelClass */
-        $modelClass = $config['model'];
-
-        return $modelClass::query()->with($config['relations'] ?? []);
-    }
-
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function applyFilters(Builder $query, Request $request, array $config): void
-    {
-        foreach ([
+        return [
             'supplier_id',
             'purchase_order_id',
             'customer_id',
@@ -150,51 +176,6 @@ class PurchasingController extends Controller
             'type',
             'status',
             'qc_status',
-        ] as $column) {
-            if ($request->filled($column)) {
-                $query->where($column, $request->string($column)->value());
-            }
-        }
-
-        if (! $request->filled('q') || $config['searchable'] === []) {
-            return;
-        }
-
-        $search = $request->string('q')->value();
-        $query->where(function (Builder $query) use ($config, $search): void {
-            foreach ($config['searchable'] as $column) {
-                $query->orWhere($column, 'like', '%'.$search.'%');
-            }
-        });
-    }
-
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function findModel(array $config, string $id): Model
-    {
-        return $this->query($config)->whereKey($id)->firstOrFail();
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function resourceConfig(string $resource): array
-    {
-        abort_unless(array_key_exists($resource, self::RESOURCES), 404, 'Unknown purchasing resource.');
-
-        return self::RESOURCES[$resource];
-    }
-
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function sortColumn(Request $request, array $config): string
-    {
-        $sort = $request->string('sort', Arr::first($config['sortable']))->value();
-
-        return in_array($sort, $config['sortable'], true)
-            ? $sort
-            : Arr::first($config['sortable']);
+        ];
     }
 }

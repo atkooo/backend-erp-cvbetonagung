@@ -2,21 +2,19 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\FinanceRequest;
+use App\Http\Requests\Api\VerifyPaymentRequest;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Payment;
 use App\Models\ProjectTermin;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
-class FinanceController extends Controller
+class FinanceController extends ApiResourceController
 {
     /**
      * @var array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
@@ -48,92 +46,96 @@ class FinanceController extends Controller
         ],
     ];
 
+    /**
+     * @return array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
+     */
+    protected function resources(): array
+    {
+        return self::RESOURCES;
+    }
+
     public function index(Request $request, string $resource): JsonResponse
     {
-        $config = $this->resourceConfig($resource);
-        $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
-        $sort = $this->sortColumn($request, $config);
-        $direction = $request->string('direction')->lower()->value() === 'desc' ? 'desc' : 'asc';
-
-        $query = $this->query($config);
-        $this->applyFilters($query, $request, $config);
-
-        $paginator = $query
-            ->orderBy($sort, $direction)
-            ->paginate($perPage)
-            ->withQueryString();
-
-        return response()->json([
-            'data' => $paginator->items(),
-            'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'last_page' => $paginator->lastPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-            ],
-        ]);
+        return $this->indexResource($request, $resource);
     }
 
     public function store(FinanceRequest $request, string $resource): JsonResponse
     {
-        $config = $this->resourceConfig($resource);
-        $modelClass = $config['model'];
-        $model = $modelClass::query()->create($request->validated());
-
-        return response()->json(['data' => $model->fresh($config['relations'] ?? [])], 201);
+        return $this->storeResource($resource, $request->validated());
     }
 
     public function show(string $resource, string $id): JsonResponse
     {
-        $config = $this->resourceConfig($resource);
-
-        return response()->json(['data' => $this->findModel($config, $id)]);
+        return $this->showResource($resource, $id);
     }
 
     public function update(FinanceRequest $request, string $resource, string $id): JsonResponse
     {
-        $config = $this->resourceConfig($resource);
-        $model = $this->findModel($config, $id);
-
-        $model->fill($request->validated());
-        $model->save();
-
-        return response()->json(['data' => $model->fresh($config['relations'] ?? [])]);
+        return $this->updateResource($resource, $id, $request->validated());
     }
 
     public function destroy(string $resource, string $id): JsonResponse|Response
     {
-        $config = $this->resourceConfig($resource);
-        $model = $this->findModel($config, $id);
+        return $this->destroyResource($resource, $id);
+    }
 
-        try {
-            $model->delete();
-        } catch (QueryException) {
-            return response()->json([
-                'message' => 'Record cannot be deleted because it is referenced by other ERP data.',
-            ], 409);
+    public function verifyPayment(VerifyPaymentRequest $request, string $id): JsonResponse
+    {
+        $validated = $request->validated();
+
+        $payment = DB::transaction(function () use ($id, $validated): Payment {
+            $payment = Payment::query()
+                ->with('invoice')
+                ->lockForUpdate()
+                ->whereKey($id)
+                ->firstOrFail();
+
+            abort_if($payment->status === 'verified', 409, 'Payment has already been verified.');
+            abort_if($payment->status === 'failed', 422, 'Failed payment cannot be verified.');
+
+            $invoice = Invoice::query()
+                ->lockForUpdate()
+                ->whereKey($payment->invoice_id)
+                ->firstOrFail();
+
+            $newPaidAmount = (float) $invoice->paid_amount + (float) $payment->amount;
+
+            $invoice->forceFill([
+                'paid_amount' => $newPaidAmount,
+                'status' => $this->invoiceStatusFor($newPaidAmount, (float) $invoice->total),
+            ])->save();
+
+            $payment->forceFill([
+                'status' => 'verified',
+                'verified_by' => $validated['verified_by'] ?? $payment->verified_by,
+                'verified_at' => $validated['verified_at'],
+                'notes' => $validated['notes'] ?? $payment->notes,
+            ])->save();
+
+            return $payment;
+        });
+
+        return response()->json([
+            'data' => $payment->fresh(['invoice', 'verifiedBy']),
+        ]);
+    }
+
+    private function invoiceStatusFor(float $paidAmount, float $total): string
+    {
+        if ($paidAmount <= 0) {
+            return 'unpaid';
         }
 
-        return response()->noContent();
+        if ($paidAmount < $total) {
+            return 'partial';
+        }
+
+        return 'paid';
     }
 
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function query(array $config): Builder
+    protected function filterableColumns(): array
     {
-        /** @var class-string<Model> $modelClass */
-        $modelClass = $config['model'];
-
-        return $modelClass::query()->with($config['relations'] ?? []);
-    }
-
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function applyFilters(Builder $query, Request $request, array $config): void
-    {
-        foreach ([
+        return [
             'customer_id',
             'sales_order_id',
             'project_id',
@@ -141,51 +143,6 @@ class FinanceController extends Controller
             'product_id',
             'status',
             'method',
-        ] as $column) {
-            if ($request->filled($column)) {
-                $query->where($column, $request->string($column)->value());
-            }
-        }
-
-        if (! $request->filled('q') || $config['searchable'] === []) {
-            return;
-        }
-
-        $search = $request->string('q')->value();
-        $query->where(function (Builder $query) use ($config, $search): void {
-            foreach ($config['searchable'] as $column) {
-                $query->orWhere($column, 'like', '%'.$search.'%');
-            }
-        });
-    }
-
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function findModel(array $config, string $id): Model
-    {
-        return $this->query($config)->whereKey($id)->firstOrFail();
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function resourceConfig(string $resource): array
-    {
-        abort_unless(array_key_exists($resource, self::RESOURCES), 404, 'Unknown finance resource.');
-
-        return self::RESOURCES[$resource];
-    }
-
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function sortColumn(Request $request, array $config): string
-    {
-        $sort = $request->string('sort', Arr::first($config['sortable']))->value();
-
-        return in_array($sort, $config['sortable'], true)
-            ? $sort
-            : Arr::first($config['sortable']);
+        ];
     }
 }

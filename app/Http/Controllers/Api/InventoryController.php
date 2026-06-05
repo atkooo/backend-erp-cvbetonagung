@@ -2,22 +2,21 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\AdjustStockOpnameItemRequest;
 use App\Http\Requests\Api\InventoryRequest;
 use App\Models\ApprovalRequest;
 use App\Models\ProductStock;
 use App\Models\StockMovement;
 use App\Models\StockOpnameItem;
 use App\Models\StockOpnameSession;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
-class InventoryController extends Controller
+class InventoryController extends ApiResourceController
 {
     /**
      * @var array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
@@ -55,30 +54,17 @@ class InventoryController extends Controller
         ],
     ];
 
+    /**
+     * @return array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
+     */
+    protected function resources(): array
+    {
+        return self::RESOURCES;
+    }
+
     public function index(Request $request, string $resource): JsonResponse
     {
-        $config = $this->resourceConfig($resource);
-        $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
-        $sort = $this->sortColumn($request, $config);
-        $direction = $request->string('direction')->lower()->value() === 'desc' ? 'desc' : 'asc';
-
-        $query = $this->query($config);
-        $this->applyFilters($query, $request, $config);
-
-        $paginator = $query
-            ->orderBy($sort, $direction)
-            ->paginate($perPage)
-            ->withQueryString();
-
-        return response()->json([
-            'data' => $paginator->items(),
-            'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'last_page' => $paginator->lastPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-            ],
-        ]);
+        return $this->indexResource($request, $resource);
     }
 
     public function store(InventoryRequest $request, string $resource): JsonResponse
@@ -95,18 +81,15 @@ class InventoryController extends Controller
             return response()->json(['data' => $model], 201);
         }
 
-        $modelClass = $config['model'];
-        $model = $modelClass::query()->create($request->validated());
-
-        return response()->json(['data' => $model->fresh($config['relations'] ?? [])], 201);
+        return $this->storeResource($resource, $request->validated());
     }
 
     public function show(string $resource, string $id): JsonResponse
     {
-        $config = $this->resourceConfig($resource);
+        $this->resourceConfig($resource);
         abort_if($resource === 'product-stocks', 404);
 
-        return response()->json(['data' => $this->findModel($config, $id)]);
+        return $this->showResource($resource, $id);
     }
 
     public function showProductStock(string $productId, string $locationId): JsonResponse
@@ -118,14 +101,10 @@ class InventoryController extends Controller
 
     public function update(InventoryRequest $request, string $resource, string $id): JsonResponse
     {
-        $config = $this->resourceConfig($resource);
+        $this->resourceConfig($resource);
         abort_if($resource === 'product-stocks', 404);
 
-        $model = $this->findModel($config, $id);
-        $model->fill($request->validated());
-        $model->save();
-
-        return response()->json(['data' => $model->fresh($config['relations'] ?? [])]);
+        return $this->updateResource($resource, $id, $request->validated());
     }
 
     public function updateProductStock(InventoryRequest $request, string $productId, string $locationId): JsonResponse
@@ -140,20 +119,10 @@ class InventoryController extends Controller
 
     public function destroy(string $resource, string $id): JsonResponse|Response
     {
-        $config = $this->resourceConfig($resource);
+        $this->resourceConfig($resource);
         abort_if($resource === 'product-stocks', 404);
 
-        $model = $this->findModel($config, $id);
-
-        try {
-            $model->delete();
-        } catch (QueryException) {
-            return response()->json([
-                'message' => 'Record cannot be deleted because it is referenced by other ERP data.',
-            ], 409);
-        }
-
-        return response()->noContent();
+        return $this->destroyResource($resource, $id);
     }
 
     public function destroyProductStock(string $productId, string $locationId): Response
@@ -168,46 +137,96 @@ class InventoryController extends Controller
         return response()->noContent();
     }
 
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function query(array $config): Builder
+    public function adjustStockOpnameItem(AdjustStockOpnameItemRequest $request, string $id): JsonResponse
     {
-        /** @var class-string<Model> $modelClass */
-        $modelClass = $config['model'];
+        $validated = $request->validated();
 
-        return $modelClass::query()->with($config['relations'] ?? []);
+        $item = DB::transaction(function () use ($id, $validated): StockOpnameItem {
+            $item = StockOpnameItem::query()
+                ->with(['approvalRequest', 'session'])
+                ->lockForUpdate()
+                ->whereKey($id)
+                ->firstOrFail();
+
+            abort_if((float) $item->difference_qty === 0.0, 422, 'Stock opname item has no difference to adjust.');
+            abort_if($item->approvalRequest === null, 422, 'Stock opname adjustment requires an approval request.');
+            abort_if($item->approvalRequest->status !== 'approved', 422, 'Stock opname approval request must be approved before adjustment.');
+            abort_if(
+                StockMovement::query()
+                    ->where('reference_type', 'stock_opname_item')
+                    ->where('reference_id', $item->id)
+                    ->exists(),
+                409,
+                'Stock opname item has already been adjusted.',
+            );
+
+            $stock = ProductStock::query()->firstOrNew([
+                'product_id' => $item->product_id,
+                'location_id' => $item->location_id,
+            ]);
+            $stock->quantity = $item->physical_qty;
+            $stock->save();
+
+            $difference = (float) $item->difference_qty;
+
+            StockMovement::query()->create([
+                'product_id' => $item->product_id,
+                'from_location_id' => $difference < 0 ? $item->location_id : null,
+                'to_location_id' => $difference > 0 ? $item->location_id : null,
+                'type' => 'adjustment',
+                'quantity' => abs($difference),
+                'reference_type' => 'stock_opname_item',
+                'reference_id' => $item->id,
+                'reference_number' => $item->session?->opname_number,
+                'handled_by' => $validated['handled_by'] ?? null,
+                'notes' => $validated['notes'] ?? $item->notes,
+                'movement_at' => $validated['movement_at'],
+            ]);
+
+            $this->closeSessionIfFullyAdjusted($item->session_id);
+
+            return $item;
+        });
+
+        return response()->json([
+            'data' => $item->fresh(['session', 'product', 'location', 'approvalRequest']),
+        ]);
     }
 
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function applyFilters(Builder $query, Request $request, array $config): void
+    private function closeSessionIfFullyAdjusted(string $sessionId): void
     {
-        foreach (['product_id', 'location_id', 'warehouse_id', 'session_id', 'status', 'type'] as $column) {
-            if ($request->filled($column)) {
-                $query->where($column, $request->string($column)->value());
-            }
-        }
+        $session = StockOpnameSession::query()
+            ->with('items')
+            ->lockForUpdate()
+            ->whereKey($sessionId)
+            ->first();
 
-        if (! $request->filled('q') || $config['searchable'] === []) {
+        if ($session === null) {
             return;
         }
 
-        $search = $request->string('q')->value();
-        $query->where(function (Builder $query) use ($config, $search): void {
-            foreach ($config['searchable'] as $column) {
-                $query->orWhere($column, 'like', '%'.$search.'%');
+        $allAdjusted = $session->items->every(function (StockOpnameItem $item): bool {
+            if ((float) $item->difference_qty === 0.0) {
+                return true;
             }
+
+            return StockMovement::query()
+                ->where('reference_type', 'stock_opname_item')
+                ->where('reference_id', $item->id)
+                ->exists();
         });
+
+        if ($allAdjusted) {
+            $session->forceFill([
+                'status' => 'closed',
+                'closed_at' => now(),
+            ])->save();
+        }
     }
 
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function findModel(array $config, string $id): Model
+    protected function filterableColumns(): array
     {
-        return $this->query($config)->whereKey($id)->firstOrFail();
+        return ['product_id', 'location_id', 'warehouse_id', 'session_id', 'status', 'type'];
     }
 
     private function findProductStock(string $productId, string $locationId): ProductStock
@@ -219,25 +238,4 @@ class InventoryController extends Controller
             ->firstOrFail();
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function resourceConfig(string $resource): array
-    {
-        abort_unless(array_key_exists($resource, self::RESOURCES), 404, 'Unknown inventory resource.');
-
-        return self::RESOURCES[$resource];
-    }
-
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function sortColumn(Request $request, array $config): string
-    {
-        $sort = $request->string('sort', Arr::first($config['sortable']))->value();
-
-        return in_array($sort, $config['sortable'], true)
-            ? $sort
-            : Arr::first($config['sortable']);
-    }
 }

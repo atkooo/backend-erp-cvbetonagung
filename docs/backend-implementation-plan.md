@@ -15,6 +15,7 @@ Target: implement `docs/erp_dbdiagram.dbml` into this Laravel backend and keep t
   - DBML tables have been implemented as Laravel migrations.
   - ERP domain models and relationships exist.
   - baseline ERP seeders and relationship tests exist.
+  - auth API has started under `/api/auth`.
   - identity/RBAC CRUD API has started under `/api/identity/{resource}`.
   - master data CRUD API has started under `/api/master-data/{resource}`.
   - inventory CRUD API has started under `/api/inventory/{resource}`.
@@ -24,6 +25,8 @@ Target: implement `docs/erp_dbdiagram.dbml` into this Laravel backend and keep t
   - finance CRUD API has started under `/api/finance/{resource}`.
   - production CRUD API has started under `/api/production/{resource}`.
   - support/reporting CRUD API has started under `/api/support/{resource}`.
+  - first sales workflow has started with quotation approval to sales order.
+  - shared API resource controller refactor has started.
 - Vite/frontend skeleton still exists in `resources/`, `package.json`, and `vite.config.js`.
 
 ## Backend-Only Direction
@@ -215,6 +218,11 @@ Goal: provide CRUD APIs by module.
 
 Status:
 
+- Started auth API:
+  - `POST /api/auth/login`
+  - `GET /api/auth/me`
+  - `POST /api/auth/logout`
+  - current implementation uses a temporary hashed `remember_token` Bearer token because no API token package is installed yet.
 - Started identity/RBAC API:
   - `roles`
   - `users`
@@ -269,6 +277,19 @@ Status:
   - `audit-logs`
   - `reminders`
   - `document-exports`
+- Started shared CRUD refactor:
+  - `ApiResourceController` centralizes pagination, search, sort, filtering, show/update/delete, and delete conflict handling.
+  - migrated `MasterDataController`.
+  - migrated `InventoryController`, while keeping composite `product-stocks` routes explicit.
+  - migrated `SalesController`, while keeping quotation approval, delivery order creation, and shipment workflows explicit.
+  - migrated `PurchasingController`, while keeping purchase order receiving explicit.
+  - migrated `ProjectController`.
+  - migrated `FinanceController`.
+  - migrated `ProductionController`.
+  - migrated `SupportController`.
+  - migrated `IdentityController`, while keeping role-permission pivot routes explicit.
+- Started service layer extraction:
+  - `SalesWorkflowService` owns quotation approval, delivery order creation, and delivery shipment transactions.
 
 Recommended order:
 
@@ -299,6 +320,42 @@ Verification:
 ### Phase 5 - Business Workflows
 
 Goal: implement ERP behavior, not just CRUD.
+
+Status:
+
+- Started sales workflow:
+  - `POST /api/sales/quotations/{id}/approve`
+  - updates quotation status to `approved`.
+  - creates a sales order from the quotation header.
+  - copies quotation items into sales order items.
+- Started delivery workflow:
+  - `POST /api/sales/sales-orders/{id}/deliver`
+  - creates a delivery order from the sales order header.
+  - copies sales order items into delivery order items.
+- Started shipment workflow:
+  - `POST /api/sales/delivery-orders/{id}/ship`
+  - validates stock availability in the selected source location.
+  - deducts product stock quantities.
+  - creates `out` stock movements linked to the delivery order.
+  - updates delivery order status to `shipped`.
+- Started payment verification workflow:
+  - `POST /api/finance/payments/{id}/verify`
+  - rejects already verified or failed payments.
+  - marks payment as `verified`.
+  - increments invoice `paid_amount`.
+  - recalculates invoice status as `unpaid`, `partial`, or `paid`.
+- Started purchase receiving workflow:
+  - `POST /api/purchasing/purchase-orders/{id}/receive`
+  - receives remaining purchase order item quantities.
+  - increases product stock in the selected destination location.
+  - creates `in` stock movements linked to the purchase order.
+  - recalculates purchase order status as `ordered`, `partially_received`, or `fully_received`.
+- Started stock opname adjustment workflow:
+  - `POST /api/inventory/stock-opname-items/{id}/adjust`
+  - requires an approved approval request for non-zero differences.
+  - updates product stock to the physical quantity.
+  - creates an `adjustment` stock movement linked to the stock opname item.
+  - closes the stock opname session when all difference items are adjusted.
 
 Workflow candidates:
 

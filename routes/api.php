@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FinanceController;
 use App\Http\Controllers\Api\IdentityController;
 use App\Http\Controllers\Api\InventoryController;
@@ -16,6 +17,12 @@ Route::get('/health', function () {
         'status' => 'ok',
         'service' => config('app.name'),
     ]);
+});
+
+Route::prefix('auth')->controller(AuthController::class)->group(function () {
+    Route::post('login', 'login');
+    Route::get('me', 'me');
+    Route::post('logout', 'logout');
 });
 
 Route::prefix('identity')->controller(IdentityController::class)->group(function () {
@@ -64,6 +71,9 @@ Route::prefix('master-data/{resource}')
     });
 
 Route::prefix('inventory')->controller(InventoryController::class)->group(function () {
+    Route::post('stock-opname-items/{id}/adjust', 'adjustStockOpnameItem')
+        ->whereUuid('id');
+
     Route::get('product-stocks/{productId}/{locationId}', 'showProductStock')
         ->whereUuid(['productId', 'locationId']);
     Route::match(['put', 'patch'], 'product-stocks/{productId}/{locationId}', 'updateProductStock')
@@ -88,6 +98,13 @@ Route::prefix('inventory')->controller(InventoryController::class)->group(functi
         });
 });
 
+Route::post('sales/quotations/{id}/approve', [SalesController::class, 'approveQuotation'])
+    ->whereUuid('id');
+Route::post('sales/sales-orders/{id}/deliver', [SalesController::class, 'createDeliveryOrder'])
+    ->whereUuid('id');
+Route::post('sales/delivery-orders/{id}/ship', [SalesController::class, 'shipDeliveryOrder'])
+    ->whereUuid('id');
+
 Route::prefix('sales/{resource}')
     ->whereIn('resource', [
         'quotations',
@@ -105,6 +122,9 @@ Route::prefix('sales/{resource}')
         Route::match(['put', 'patch'], '/{id}', 'update')->whereUuid('id');
         Route::delete('/{id}', 'destroy')->whereUuid('id');
     });
+
+Route::post('purchasing/purchase-orders/{id}/receive', [PurchasingController::class, 'receivePurchaseOrder'])
+    ->whereUuid('id');
 
 Route::prefix('purchasing/{resource}')
     ->whereIn('resource', [
@@ -138,6 +158,9 @@ Route::prefix('projects/{resource}')
         Route::match(['put', 'patch'], '/{id}', 'update')->whereUuid('id');
         Route::delete('/{id}', 'destroy')->whereUuid('id');
     });
+
+Route::post('finance/payments/{id}/verify', [FinanceController::class, 'verifyPayment'])
+    ->whereUuid('id');
 
 Route::prefix('finance/{resource}')
     ->whereIn('resource', [

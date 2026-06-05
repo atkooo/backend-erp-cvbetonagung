@@ -3,6 +3,9 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Product;
+use App\Models\ProductStock;
+use App\Models\StockMovement;
+use App\Models\StorageLocation;
 use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -113,6 +116,66 @@ class PurchasingApiTest extends TestCase
         $this->getJson('/api/purchasing/returns?type=supplier&q=RET-API')
             ->assertOk()
             ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_purchase_order_can_be_received_into_stock_movements(): void
+    {
+        $this->seed();
+
+        $supplier = Supplier::query()->where('code', 'SUP-UMUM')->firstOrFail();
+        $product = Product::query()->where('sku', 'MTL-0001')->firstOrFail();
+        $location = StorageLocation::query()->where('code', 'DEFAULT')->firstOrFail();
+        $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
+
+        ProductStock::query()->updateOrCreate(
+            [
+                'product_id' => $product->id,
+                'location_id' => $location->id,
+            ],
+            ['quantity' => 0],
+        );
+
+        $poId = $this->postJson('/api/purchasing/purchase-orders', [
+            'po_number' => 'PO-API-RECEIVE',
+            'supplier_id' => $supplier->id,
+            'po_date' => '2026-06-05',
+            'total' => 600000,
+            'status' => 'ordered',
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson('/api/purchasing/purchase-order-items', [
+            'purchase_order_id' => $poId,
+            'product_id' => $product->id,
+            'quantity' => 3,
+            'unit_price' => 200000,
+            'received_qty' => 0,
+            'subtotal' => 600000,
+        ])->assertCreated();
+
+        $this->postJson("/api/purchasing/purchase-orders/{$poId}/receive", [
+            'to_location_id' => $location->id,
+            'handled_by' => $admin->id,
+            'movement_at' => '2026-06-06 08:00:00',
+            'notes' => 'Received via API workflow.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'fully_received')
+            ->assertJsonPath('data.items.0.received_qty', '3.00');
+
+        $stock = ProductStock::query()
+            ->where('product_id', $product->id)
+            ->where('location_id', $location->id)
+            ->firstOrFail();
+
+        $this->assertSame('3.00', $stock->quantity);
+
+        $movement = StockMovement::query()
+            ->where('reference_number', 'PO-API-RECEIVE')
+            ->firstOrFail();
+
+        $this->assertSame('in', $movement->type);
+        $this->assertSame('3.00', $movement->quantity);
+        $this->assertSame($admin->id, $movement->handled_by);
     }
 
     public function test_purchasing_api_rejects_invalid_purchase_order_status(): void

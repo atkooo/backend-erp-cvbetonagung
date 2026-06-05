@@ -2,7 +2,10 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\ApprovalRequest;
 use App\Models\Product;
+use App\Models\ProductStock;
+use App\Models\StockMovement;
 use App\Models\StockOpnameSession;
 use App\Models\StorageLocation;
 use App\Models\User;
@@ -148,5 +151,79 @@ class InventoryApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.approval_number', 'APR-API-001')
             ->assertJsonPath('data.requester.email', 'admin@example.com');
+    }
+
+    public function test_approved_stock_opname_item_can_adjust_stock_and_create_movement(): void
+    {
+        $this->seed();
+
+        $warehouse = Warehouse::query()->where('code', 'GDG-UTM')->firstOrFail();
+        $product = Product::query()->where('sku', 'PRC-0001')->firstOrFail();
+        $location = StorageLocation::query()->where('code', 'DEFAULT')->firstOrFail();
+        $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
+
+        ProductStock::query()->updateOrCreate(
+            [
+                'product_id' => $product->id,
+                'location_id' => $location->id,
+            ],
+            ['quantity' => 5],
+        );
+
+        $sessionId = $this->postJson('/api/inventory/stock-opname-sessions', [
+            'opname_number' => 'OPN-API-ADJUST',
+            'warehouse_id' => $warehouse->id,
+            'started_by' => $admin->id,
+            'status' => 'in_progress',
+            'started_at' => '2026-06-05 09:00:00',
+        ])->assertCreated()->json('data.id');
+
+        $approval = ApprovalRequest::query()->create([
+            'approval_number' => 'APR-API-ADJUST',
+            'request_type' => 'stock_opname_adjustment',
+            'requester_id' => $admin->id,
+            'approver_id' => $admin->id,
+            'reference_type' => 'OPNAME',
+            'reference_id' => $sessionId,
+            'reference_number' => 'OPN-API-ADJUST',
+            'status' => 'approved',
+            'requested_at' => '2026-06-05 10:00:00',
+            'decided_at' => '2026-06-05 11:00:00',
+        ]);
+
+        $itemId = $this->postJson('/api/inventory/stock-opname-items', [
+            'session_id' => $sessionId,
+            'product_id' => $product->id,
+            'location_id' => $location->id,
+            'system_qty' => 5,
+            'physical_qty' => 7,
+            'difference_qty' => 2,
+            'approval_request_id' => $approval->id,
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson("/api/inventory/stock-opname-items/{$itemId}/adjust", [
+            'handled_by' => $admin->id,
+            'movement_at' => '2026-06-05 12:00:00',
+            'notes' => 'Adjusted via API workflow.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.session.status', 'closed')
+            ->assertJsonPath('data.approval_request.status', 'approved');
+
+        $stock = ProductStock::query()
+            ->where('product_id', $product->id)
+            ->where('location_id', $location->id)
+            ->firstOrFail();
+
+        $this->assertSame('7.00', $stock->quantity);
+
+        $movement = StockMovement::query()
+            ->where('reference_type', 'stock_opname_item')
+            ->where('reference_id', $itemId)
+            ->firstOrFail();
+
+        $this->assertSame('adjustment', $movement->type);
+        $this->assertSame('2.00', $movement->quantity);
+        $this->assertSame($location->id, $movement->to_location_id);
     }
 }

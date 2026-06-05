@@ -116,6 +116,59 @@ class FinanceApiTest extends TestCase
             ->assertJsonPath('data.invoice.invoice_number', 'INV-INIT');
     }
 
+    public function test_verified_payments_recalculate_invoice_paid_amount_and_status(): void
+    {
+        $this->seed();
+
+        $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
+        $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
+
+        $invoiceId = $this->postJson('/api/finance/invoices', [
+            'invoice_number' => 'INV-API-VERIFY',
+            'customer_id' => $customer->id,
+            'invoice_date' => '2026-06-05',
+            'total' => 1000000,
+            'paid_amount' => 0,
+            'status' => 'unpaid',
+        ])->assertCreated()->json('data.id');
+
+        $firstPaymentId = $this->postJson('/api/finance/payments', [
+            'invoice_id' => $invoiceId,
+            'payment_number' => 'PAY-API-VERIFY-1',
+            'payment_date' => '2026-06-06 09:00:00',
+            'method' => 'transfer',
+            'amount' => 400000,
+            'status' => 'pending',
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson("/api/finance/payments/{$firstPaymentId}/verify", [
+            'verified_by' => $admin->id,
+            'verified_at' => '2026-06-06 10:00:00',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'verified')
+            ->assertJsonPath('data.invoice.paid_amount', '400000.00')
+            ->assertJsonPath('data.invoice.status', 'partial')
+            ->assertJsonPath('data.verified_by.email', 'admin@example.com');
+
+        $secondPaymentId = $this->postJson('/api/finance/payments', [
+            'invoice_id' => $invoiceId,
+            'payment_number' => 'PAY-API-VERIFY-2',
+            'payment_date' => '2026-06-07 09:00:00',
+            'method' => 'transfer',
+            'amount' => 600000,
+            'status' => 'pending',
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson("/api/finance/payments/{$secondPaymentId}/verify", [
+            'verified_by' => $admin->id,
+            'verified_at' => '2026-06-07 10:00:00',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.invoice.paid_amount', '1000000.00')
+            ->assertJsonPath('data.invoice.status', 'paid');
+    }
+
     public function test_finance_api_rejects_invalid_payment_method(): void
     {
         $this->seed();

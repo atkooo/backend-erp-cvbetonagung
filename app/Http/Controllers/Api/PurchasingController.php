@@ -5,17 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\Api\PurchasingRequest;
 use App\Http\Requests\Api\ReceivePurchaseOrderRequest;
 use App\Models\ProductReturn;
-use App\Models\ProductStock;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\ReturnItem;
-use App\Models\StockMovement;
 use App\Models\SupplierPayable;
+use App\Services\PurchasingWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
 
 class PurchasingController extends ApiResourceController
 {
@@ -55,6 +53,10 @@ class PurchasingController extends ApiResourceController
         ],
     ];
 
+    public function __construct(private readonly PurchasingWorkflowService $purchasingWorkflow)
+    {
+    }
+
     /**
      * @return array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
      */
@@ -90,78 +92,11 @@ class PurchasingController extends ApiResourceController
 
     public function receivePurchaseOrder(ReceivePurchaseOrderRequest $request, string $id): JsonResponse
     {
-        $validated = $request->validated();
-
-        $purchaseOrder = DB::transaction(function () use ($id, $validated): PurchaseOrder {
-            $purchaseOrder = PurchaseOrder::query()
-                ->with('items')
-                ->lockForUpdate()
-                ->whereKey($id)
-                ->firstOrFail();
-
-            abort_if($purchaseOrder->items->isEmpty(), 422, 'Purchase order must have at least one item before receiving.');
-            abort_if($purchaseOrder->status === 'cancelled', 422, 'Cancelled purchase order cannot be received.');
-            abort_if($purchaseOrder->status === 'fully_received', 409, 'Purchase order has already been fully received.');
-
-            foreach ($purchaseOrder->items as $item) {
-                $remainingQty = (float) $item->quantity - (float) $item->received_qty;
-
-                if ($remainingQty <= 0) {
-                    continue;
-                }
-
-                $stock = ProductStock::query()->firstOrNew([
-                    'product_id' => $item->product_id,
-                    'location_id' => $validated['to_location_id'],
-                ]);
-
-                $stock->quantity = (float) ($stock->quantity ?? 0) + $remainingQty;
-                $stock->save();
-
-                $item->forceFill(['received_qty' => $item->quantity])->save();
-
-                StockMovement::query()->create([
-                    'product_id' => $item->product_id,
-                    'from_location_id' => null,
-                    'to_location_id' => $validated['to_location_id'],
-                    'type' => 'in',
-                    'quantity' => $remainingQty,
-                    'reference_type' => 'purchase_order',
-                    'reference_id' => $purchaseOrder->id,
-                    'reference_number' => $purchaseOrder->po_number,
-                    'handled_by' => $validated['handled_by'] ?? null,
-                    'notes' => $validated['notes'] ?? null,
-                    'movement_at' => $validated['movement_at'],
-                ]);
-            }
-
-            $purchaseOrder->forceFill([
-                'status' => $this->purchaseOrderStatusFor($purchaseOrder->items()->get()),
-            ])->save();
-
-            return $purchaseOrder;
-        });
+        $purchaseOrder = $this->purchasingWorkflow->receivePurchaseOrder($id, $request->validated());
 
         return response()->json([
             'data' => $purchaseOrder->fresh(['supplier', 'items.product', 'supplierPayables']),
         ]);
-    }
-
-    private function purchaseOrderStatusFor($items): string
-    {
-        $totalQty = 0.0;
-        $receivedQty = 0.0;
-
-        foreach ($items as $item) {
-            $totalQty += (float) $item->quantity;
-            $receivedQty += (float) $item->received_qty;
-        }
-
-        if ($receivedQty <= 0) {
-            return 'ordered';
-        }
-
-        return $receivedQty >= $totalQty ? 'fully_received' : 'partially_received';
     }
 
     protected function filterableColumns(): array

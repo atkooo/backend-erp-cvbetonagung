@@ -223,6 +223,16 @@ Status:
   - `GET /api/auth/me`
   - `POST /api/auth/logout`
   - current implementation uses a temporary hashed `remember_token` Bearer token because no API token package is installed yet.
+- Started API route protection:
+  - `AuthenticateApiToken` resolves active users from the temporary Bearer token.
+  - ERP module routes and `auth/me`/`auth/logout` require `api.token`.
+  - `auth/login` and `health` remain public.
+  - API feature tests attach a temporary Bearer token from `tests/TestCase.php`.
+- Started permission enforcement:
+  - `RequirePermission` infers module/action from route resource, path, and HTTP method.
+  - access levels map to `read`, `edit`, and `full` role permission pivots.
+  - protected ERP routes now require both `api.token` and `permission`.
+  - added unauthenticated and forbidden API coverage.
 - Started identity/RBAC API:
   - `roles`
   - `users`
@@ -290,6 +300,9 @@ Status:
   - migrated `IdentityController`, while keeping role-permission pivot routes explicit.
 - Started service layer extraction:
   - `SalesWorkflowService` owns quotation approval, delivery order creation, and delivery shipment transactions.
+  - `PurchasingWorkflowService` owns purchase order receiving, stock increment, and inbound movement creation.
+  - `FinanceWorkflowService` owns payment verification and invoice paid/status updates.
+  - `InventoryWorkflowService` owns approved stock opname adjustment and session closing.
 
 Recommended order:
 

@@ -9,12 +9,12 @@ use App\Models\ProductStock;
 use App\Models\StockMovement;
 use App\Models\StockOpnameItem;
 use App\Models\StockOpnameSession;
+use App\Services\InventoryWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\DB;
 
 class InventoryController extends ApiResourceController
 {
@@ -53,6 +53,10 @@ class InventoryController extends ApiResourceController
             'relations' => ['requester', 'approver'],
         ],
     ];
+
+    public function __construct(private readonly InventoryWorkflowService $inventoryWorkflow)
+    {
+    }
 
     /**
      * @return array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
@@ -139,89 +143,11 @@ class InventoryController extends ApiResourceController
 
     public function adjustStockOpnameItem(AdjustStockOpnameItemRequest $request, string $id): JsonResponse
     {
-        $validated = $request->validated();
-
-        $item = DB::transaction(function () use ($id, $validated): StockOpnameItem {
-            $item = StockOpnameItem::query()
-                ->with(['approvalRequest', 'session'])
-                ->lockForUpdate()
-                ->whereKey($id)
-                ->firstOrFail();
-
-            abort_if((float) $item->difference_qty === 0.0, 422, 'Stock opname item has no difference to adjust.');
-            abort_if($item->approvalRequest === null, 422, 'Stock opname adjustment requires an approval request.');
-            abort_if($item->approvalRequest->status !== 'approved', 422, 'Stock opname approval request must be approved before adjustment.');
-            abort_if(
-                StockMovement::query()
-                    ->where('reference_type', 'stock_opname_item')
-                    ->where('reference_id', $item->id)
-                    ->exists(),
-                409,
-                'Stock opname item has already been adjusted.',
-            );
-
-            $stock = ProductStock::query()->firstOrNew([
-                'product_id' => $item->product_id,
-                'location_id' => $item->location_id,
-            ]);
-            $stock->quantity = $item->physical_qty;
-            $stock->save();
-
-            $difference = (float) $item->difference_qty;
-
-            StockMovement::query()->create([
-                'product_id' => $item->product_id,
-                'from_location_id' => $difference < 0 ? $item->location_id : null,
-                'to_location_id' => $difference > 0 ? $item->location_id : null,
-                'type' => 'adjustment',
-                'quantity' => abs($difference),
-                'reference_type' => 'stock_opname_item',
-                'reference_id' => $item->id,
-                'reference_number' => $item->session?->opname_number,
-                'handled_by' => $validated['handled_by'] ?? null,
-                'notes' => $validated['notes'] ?? $item->notes,
-                'movement_at' => $validated['movement_at'],
-            ]);
-
-            $this->closeSessionIfFullyAdjusted($item->session_id);
-
-            return $item;
-        });
+        $item = $this->inventoryWorkflow->adjustStockOpnameItem($id, $request->validated());
 
         return response()->json([
             'data' => $item->fresh(['session', 'product', 'location', 'approvalRequest']),
         ]);
-    }
-
-    private function closeSessionIfFullyAdjusted(string $sessionId): void
-    {
-        $session = StockOpnameSession::query()
-            ->with('items')
-            ->lockForUpdate()
-            ->whereKey($sessionId)
-            ->first();
-
-        if ($session === null) {
-            return;
-        }
-
-        $allAdjusted = $session->items->every(function (StockOpnameItem $item): bool {
-            if ((float) $item->difference_qty === 0.0) {
-                return true;
-            }
-
-            return StockMovement::query()
-                ->where('reference_type', 'stock_opname_item')
-                ->where('reference_id', $item->id)
-                ->exists();
-        });
-
-        if ($allAdjusted) {
-            $session->forceFill([
-                'status' => 'closed',
-                'closed_at' => now(),
-            ])->save();
-        }
     }
 
     protected function filterableColumns(): array
@@ -237,5 +163,4 @@ class InventoryController extends ApiResourceController
             ->where('location_id', $locationId)
             ->firstOrFail();
     }
-
 }

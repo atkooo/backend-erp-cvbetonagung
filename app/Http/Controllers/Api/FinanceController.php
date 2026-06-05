@@ -8,11 +8,11 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Payment;
 use App\Models\ProjectTermin;
+use App\Services\FinanceWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
 
 class FinanceController extends ApiResourceController
 {
@@ -45,6 +45,10 @@ class FinanceController extends ApiResourceController
             'relations' => ['project', 'invoice'],
         ],
     ];
+
+    public function __construct(private readonly FinanceWorkflowService $financeWorkflow)
+    {
+    }
 
     /**
      * @return array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
@@ -81,56 +85,11 @@ class FinanceController extends ApiResourceController
 
     public function verifyPayment(VerifyPaymentRequest $request, string $id): JsonResponse
     {
-        $validated = $request->validated();
-
-        $payment = DB::transaction(function () use ($id, $validated): Payment {
-            $payment = Payment::query()
-                ->with('invoice')
-                ->lockForUpdate()
-                ->whereKey($id)
-                ->firstOrFail();
-
-            abort_if($payment->status === 'verified', 409, 'Payment has already been verified.');
-            abort_if($payment->status === 'failed', 422, 'Failed payment cannot be verified.');
-
-            $invoice = Invoice::query()
-                ->lockForUpdate()
-                ->whereKey($payment->invoice_id)
-                ->firstOrFail();
-
-            $newPaidAmount = (float) $invoice->paid_amount + (float) $payment->amount;
-
-            $invoice->forceFill([
-                'paid_amount' => $newPaidAmount,
-                'status' => $this->invoiceStatusFor($newPaidAmount, (float) $invoice->total),
-            ])->save();
-
-            $payment->forceFill([
-                'status' => 'verified',
-                'verified_by' => $validated['verified_by'] ?? $payment->verified_by,
-                'verified_at' => $validated['verified_at'],
-                'notes' => $validated['notes'] ?? $payment->notes,
-            ])->save();
-
-            return $payment;
-        });
+        $payment = $this->financeWorkflow->verifyPayment($id, $request->validated());
 
         return response()->json([
             'data' => $payment->fresh(['invoice', 'verifiedBy']),
         ]);
-    }
-
-    private function invoiceStatusFor(float $paidAmount, float $total): string
-    {
-        if ($paidAmount <= 0) {
-            return 'unpaid';
-        }
-
-        if ($paidAmount < $total) {
-            return 'partial';
-        }
-
-        return 'paid';
     }
 
     protected function filterableColumns(): array

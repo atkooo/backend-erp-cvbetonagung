@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AuthApiTest extends TestCase
@@ -63,5 +65,32 @@ class AuthApiTest extends TestCase
             'email' => 'admin@example.com',
             'password' => 'password',
         ])->assertUnprocessable();
+    }
+
+    public function test_protected_api_routes_require_bearer_token(): void
+    {
+        $this->withHeaders(['Authorization' => ''])
+            ->getJson('/api/master-data/customers')
+            ->assertUnauthorized()
+            ->assertJsonPath('message', 'Unauthenticated.');
+    }
+
+    public function test_protected_api_routes_require_permission(): void
+    {
+        $role = Role::query()->create([
+            'code' => 'no-access',
+            'name' => 'No Access',
+        ]);
+        $token = Str::random(64);
+        $user = User::factory()->create([
+            'role_id' => $role->id,
+            'status' => 'active',
+        ]);
+        $user->forceFill(['remember_token' => hash('sha256', $token)])->save();
+
+        $this->withToken($token)
+            ->getJson('/api/master-data/customers')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Forbidden.');
     }
 }

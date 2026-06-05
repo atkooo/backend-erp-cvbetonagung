@@ -81,6 +81,21 @@ class User extends Authenticatable
         return $this->hasMany(ProductionWorkLog::class, 'verified_by');
     }
 
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(AuditLog::class);
+    }
+
+    public function reminders(): HasMany
+    {
+        return $this->hasMany(Reminder::class, 'assigned_to');
+    }
+
+    public function documentExports(): HasMany
+    {
+        return $this->hasMany(DocumentExport::class, 'exported_by');
+    }
+
     /**
      * Get the attributes that should be cast.
      *

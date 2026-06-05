@@ -23,4 +23,9 @@ class Role extends Model
         return $this->belongsToMany(Permission::class, 'role_permissions')
             ->withPivot('access_level');
     }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(AuditLog::class);
+    }
 }

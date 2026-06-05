@@ -17,7 +17,7 @@ class AuthController extends Controller
         $credentials = $request->validated();
 
         $user = User::query()
-            ->with(['role', 'employee'])
+            ->with(['role.permissions', 'employee'])
             ->where('email', $credentials['email'])
             ->first();
 
@@ -37,7 +37,7 @@ class AuthController extends Controller
             'data' => [
                 'token_type' => 'Bearer',
                 'access_token' => $token,
-                'user' => $user->fresh(['role', 'employee']),
+                'user' => $user->fresh(['role.permissions', 'employee']),
             ],
         ]);
     }
@@ -75,7 +75,7 @@ class AuthController extends Controller
         }
 
         return User::query()
-            ->with(['role', 'employee'])
+            ->with(['role.permissions', 'employee'])
             ->where('remember_token', hash('sha256', $token))
             ->first();
     }

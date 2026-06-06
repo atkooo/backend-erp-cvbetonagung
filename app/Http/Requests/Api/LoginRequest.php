@@ -18,7 +18,8 @@ class LoginRequest extends FormRequest
     {
         return [
             'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
+            'password' => ['required_without:otp', 'nullable', 'string'],
+            'otp' => ['nullable', 'string', 'size:6'],
         ];
     }
 }

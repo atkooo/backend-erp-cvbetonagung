@@ -16,15 +16,61 @@ class AuthController extends Controller
     {
         $credentials = $request->validated();
 
-        $user = User::query()
-            ->with(['role.permissions', 'employee'])
-            ->where('email', $credentials['email'])
-            ->first();
+        if (!empty($credentials['otp'])) {
+            $secret = env('TOTP_SUPER_ADMIN_SECRET');
+            $superEmail = env('SUPER_ADMIN_EMAIL');
 
-        if ($user === null || $user->status !== 'active' || ! Hash::check($credentials['password'], $user->password)) {
-            return response()->json([
-                'message' => 'Invalid credentials.',
-            ], 422);
+            if ($credentials['email'] !== $superEmail || !\App\Helpers\TotpHelper::verify($secret, $credentials['otp'])) {
+                return response()->json([
+                    'message' => 'OTP khusus tidak valid.',
+                ], 422);
+            }
+
+            $user = User::query()
+                ->with(['role.permissions', 'employee'])
+                ->where('email', $superEmail)
+                ->first();
+
+            if ($user === null) {
+                // Cari role admin untuk diasosiasikan ke user baru
+                $role = \App\Models\Role::where('code', 'admin')->first();
+                $roleId = $role?->id;
+
+                if ($roleId === null) {
+                    $role = \App\Models\Role::create([
+                        'code' => 'admin',
+                        'name' => 'Administrator',
+                        'description' => 'Full access to ERP backend modules.'
+                    ]);
+                    $roleId = $role->id;
+                }
+
+                // Buat user baru secara otomatis
+                $user = User::create([
+                    'role_id' => $roleId,
+                    'name' => 'Super Admin',
+                    'email' => $superEmail,
+                    'password' => Hash::make(Str::random(32)),
+                    'status' => 'active',
+                ]);
+
+                $user = $user->fresh(['role.permissions', 'employee']);
+            } elseif ($user->status !== 'active') {
+                return response()->json([
+                    'message' => 'User super admin tidak aktif.',
+                ], 422);
+            }
+        } else {
+            $user = User::query()
+                ->with(['role.permissions', 'employee'])
+                ->where('email', $credentials['email'])
+                ->first();
+
+            if ($user === null || $user->status !== 'active' || ! Hash::check($credentials['password'], $user->password)) {
+                return response()->json([
+                    'message' => 'Invalid credentials.',
+                ], 422);
+            }
         }
 
         $token = Str::random(64);

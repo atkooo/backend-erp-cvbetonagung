@@ -30,7 +30,7 @@ class ErpInventoryTest extends TestCase
     {
         $this->seed();
 
-        $stock = ProductStock::query()->firstOrFail();
+        $stock = ProductStock::query()->where('quantity', '0.00')->firstOrFail();
 
         $this->assertInstanceOf(Product::class, $stock->product);
         $this->assertInstanceOf(StorageLocation::class, $stock->location);

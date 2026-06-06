@@ -132,8 +132,14 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
 
     Route::prefix('purchasing/{resource}')
         ->whereIn('resource', [
+            'purchase-requests',
+            'purchase-request-items',
+            'rfqs',
+            'rfq-items',
             'purchase-orders',
             'purchase-order-items',
+            'goods-receipt-notes',
+            'goods-receipt-note-items',
             'supplier-payables',
             'returns',
             'return-items',

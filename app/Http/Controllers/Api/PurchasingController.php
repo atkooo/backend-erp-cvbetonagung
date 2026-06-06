@@ -13,7 +13,12 @@ use App\Services\PurchasingWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
+use App\Models\GoodsReceiptNote;
+use App\Models\GoodsReceiptNoteItem;
+use App\Models\PurchaseRequest;
+use App\Models\PurchaseRequestItem;
+use App\Models\Rfq;
+use App\Models\RfqItem;
 
 class PurchasingController extends ApiResourceController
 {
@@ -21,6 +26,42 @@ class PurchasingController extends ApiResourceController
      * @var array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
      */
     private const RESOURCES = [
+        'purchase-requests' => [
+            'model' => PurchaseRequest::class,
+            'searchable' => ['pr_number', 'notes', 'department'],
+            'sortable' => ['pr_number', 'request_date', 'required_date', 'status'],
+            'relations' => ['requester', 'items.product', 'purchaseOrders'],
+        ],
+        'purchase-request-items' => [
+            'model' => PurchaseRequestItem::class,
+            'searchable' => ['description'],
+            'sortable' => ['quantity', 'status'],
+            'relations' => ['purchaseRequest', 'product'],
+        ],
+        'rfqs' => [
+            'model' => Rfq::class,
+            'searchable' => ['rfq_number', 'notes'],
+            'sortable' => ['rfq_number', 'rfq_date', 'valid_until', 'status'],
+            'relations' => ['purchaseRequest', 'supplier', 'items.product', 'purchaseOrders'],
+        ],
+        'rfq-items' => [
+            'model' => RfqItem::class,
+            'searchable' => ['description'],
+            'sortable' => ['quantity', 'quoted_unit_price'],
+            'relations' => ['rfq', 'product'],
+        ],
+        'goods-receipt-notes' => [
+            'model' => GoodsReceiptNote::class,
+            'searchable' => ['grn_number', 'delivery_order_number', 'notes'],
+            'sortable' => ['grn_number', 'receipt_date', 'status'],
+            'relations' => ['purchaseOrder', 'warehouse', 'receiver', 'items.product'],
+        ],
+        'goods-receipt-note-items' => [
+            'model' => GoodsReceiptNoteItem::class,
+            'searchable' => ['notes'],
+            'sortable' => ['received_qty', 'rejected_qty'],
+            'relations' => ['goodsReceiptNote', 'purchaseOrderItem', 'product'],
+        ],
         'purchase-orders' => [
             'model' => PurchaseOrder::class,
             'searchable' => ['po_number', 'notes'],
@@ -111,6 +152,10 @@ class PurchasingController extends ApiResourceController
             'type',
             'status',
             'qc_status',
+            'purchase_request_id',
+            'rfq_id',
+            'goods_receipt_note_id',
+            'warehouse_id',
         ];
     }
 }

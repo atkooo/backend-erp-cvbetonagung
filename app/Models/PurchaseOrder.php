@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'po_number',
     'supplier_id',
+    'purchase_request_id',
+    'rfq_id',
     'po_date',
     'total',
     'status',
@@ -23,6 +25,16 @@ class PurchaseOrder extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function purchaseRequest(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseRequest::class);
+    }
+
+    public function rfq(): BelongsTo
+    {
+        return $this->belongsTo(Rfq::class);
     }
 
     public function items(): HasMany
@@ -38,6 +50,11 @@ class PurchaseOrder extends Model
     public function productReturns(): HasMany
     {
         return $this->hasMany(ProductReturn::class);
+    }
+
+    public function goodsReceiptNotes(): HasMany
+    {
+        return $this->hasMany(GoodsReceiptNote::class);
     }
 
     protected function casts(): array

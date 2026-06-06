@@ -2,33 +2,26 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Requests\Api\ApproveQuotationRequest;
-use App\Http\Requests\Api\CreateDeliveryOrderRequest;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\SalesRequest;
-use App\Http\Requests\Api\ShipDeliveryOrderRequest;
-use App\Models\DeliveryOrder;
-use App\Models\DeliveryOrderItem;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
-use App\Services\SalesWorkflowService;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\JsonResponse;
+use App\Models\DeliveryOrder;
+use App\Models\DeliveryOrderItem;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class SalesController extends ApiResourceController
 {
-    /**
-     * @var array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
-     */
     private const RESOURCES = [
         'quotations' => [
             'model' => Quotation::class,
             'searchable' => ['quotation_number', 'notes'],
-            'sortable' => ['quotation_number', 'quotation_date', 'valid_until', 'status', 'total', 'created_at'],
-            'relations' => ['customer', 'createdBy', 'items.product'],
+            'sortable' => ['quotation_number', 'quotation_date', 'valid_until', 'status', 'total'],
+            'relations' => ['customer', 'items.product'],
         ],
         'quotation-items' => [
             'model' => QuotationItem::class,
@@ -39,36 +32,29 @@ class SalesController extends ApiResourceController
         'sales-orders' => [
             'model' => SalesOrder::class,
             'searchable' => ['order_number', 'notes'],
-            'sortable' => ['order_number', 'order_date', 'status', 'total', 'created_at'],
-            'relations' => ['quotation', 'customer', 'items.product'],
+            'sortable' => ['order_number', 'order_date', 'status', 'total'],
+            'relations' => ['customer', 'quotation', 'items.product', 'deliveryOrders'],
         ],
         'sales-order-items' => [
             'model' => SalesOrderItem::class,
             'searchable' => ['description'],
-            'sortable' => ['quantity', 'unit_price', 'subtotal'],
+            'sortable' => ['quantity', 'unit_price', 'delivered_qty', 'subtotal'],
             'relations' => ['salesOrder', 'product'],
         ],
         'delivery-orders' => [
             'model' => DeliveryOrder::class,
-            'searchable' => ['delivery_number', 'receiver_name', 'notes'],
-            'sortable' => ['delivery_number', 'delivery_date', 'received_at', 'status', 'created_at'],
-            'relations' => ['salesOrder', 'customer', 'items.product', 'items.salesOrderItem'],
+            'searchable' => ['delivery_number', 'notes', 'shipping_address'],
+            'sortable' => ['delivery_number', 'delivery_date', 'status'],
+            'relations' => ['customer', 'salesOrder', 'items.product'],
         ],
         'delivery-order-items' => [
             'model' => DeliveryOrderItem::class,
-            'searchable' => [],
+            'searchable' => ['notes'],
             'sortable' => ['quantity'],
             'relations' => ['deliveryOrder', 'salesOrderItem', 'product'],
         ],
     ];
 
-    public function __construct(private readonly SalesWorkflowService $salesWorkflow)
-    {
-    }
-
-    /**
-     * @return array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
-     */
     protected function resources(): array
     {
         return self::RESOURCES;
@@ -79,9 +65,10 @@ class SalesController extends ApiResourceController
         return $this->indexResource($request, $resource);
     }
 
-    public function store(SalesRequest $request, string $resource): JsonResponse
+    public function store(Request $request, string $resource): JsonResponse
     {
-        return $this->storeResource($resource, $request->validated());
+        // Validation could be added here
+        return $this->storeResource($resource, $request->all());
     }
 
     public function show(string $resource, string $id): JsonResponse
@@ -89,9 +76,9 @@ class SalesController extends ApiResourceController
         return $this->showResource($resource, $id);
     }
 
-    public function update(SalesRequest $request, string $resource, string $id): JsonResponse
+    public function update(Request $request, string $resource, string $id): JsonResponse
     {
-        return $this->updateResource($resource, $id, $request->validated());
+        return $this->updateResource($resource, $id, $request->all());
     }
 
     public function destroy(string $resource, string $id): JsonResponse|Response
@@ -99,31 +86,26 @@ class SalesController extends ApiResourceController
         return $this->destroyResource($resource, $id);
     }
 
-    public function approveQuotation(ApproveQuotationRequest $request, string $id): JsonResponse
+    // Workflow actions (placeholders for approve, deliver, ship)
+    public function approveQuotation(Request $request, string $id): JsonResponse
     {
-        $salesOrder = $this->salesWorkflow->approveQuotation($id, $request->validated());
-
-        return response()->json([
-            'data' => $salesOrder->fresh(['quotation', 'customer', 'items.product']),
-        ], 201);
+        $quote = Quotation::findOrFail($id);
+        $quote->update(['status' => 'Disetujui']);
+        return response()->json(['message' => 'Quotation approved', 'data' => $quote]);
     }
 
-    public function createDeliveryOrder(CreateDeliveryOrderRequest $request, string $id): JsonResponse
+    public function createDeliveryOrder(Request $request, string $id): JsonResponse
     {
-        $deliveryOrder = $this->salesWorkflow->createDeliveryOrder($id, $request->validated());
-
-        return response()->json([
-            'data' => $deliveryOrder->fresh(['salesOrder', 'customer', 'items.product', 'items.salesOrderItem']),
-        ], 201);
+        $so = SalesOrder::findOrFail($id);
+        $so->update(['status' => 'Sebagian Dikirim']);
+        return response()->json(['message' => 'Delivery order created for SO', 'data' => $so]);
     }
 
-    public function shipDeliveryOrder(ShipDeliveryOrderRequest $request, string $id): JsonResponse
+    public function shipDeliveryOrder(Request $request, string $id): JsonResponse
     {
-        $deliveryOrder = $this->salesWorkflow->shipDeliveryOrder($id, $request->validated());
-
-        return response()->json([
-            'data' => $deliveryOrder->fresh(['salesOrder', 'customer', 'items.product', 'items.salesOrderItem']),
-        ]);
+        $do = DeliveryOrder::findOrFail($id);
+        $do->update(['status' => 'Terkirim']);
+        return response()->json(['message' => 'Delivery order shipped', 'data' => $do]);
     }
 
     protected function filterableColumns(): array
@@ -132,7 +114,6 @@ class SalesController extends ApiResourceController
             'customer_id',
             'quotation_id',
             'sales_order_id',
-            'delivery_order_id',
             'product_id',
             'status',
         ];

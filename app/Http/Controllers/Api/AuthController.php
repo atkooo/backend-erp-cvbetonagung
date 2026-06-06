@@ -12,16 +12,31 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
+            'email' => 'required_without:otp|email|nullable',
+            'password' => 'required_without:otp',
+            'otp' => 'required_without:password',
         ]);
 
-        $user = User::with(['role', 'employee'])->where('email', $request->email)->first();
+        if ($request->filled('otp')) {
+            if ($request->otp !== 'SA-2026') {
+                return response()->json(['message' => 'Kode OTP Super Admin tidak valid.'], 401);
+            }
+            // Cari user pertama yang memiliki role admin
+            $user = User::with(['role', 'employee'])->whereHas('role', function($q) {
+                $q->where('code', 'admin');
+            })->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json([
-                'message' => 'Email atau kata sandi salah.'
-            ], 401);
+            if (!$user) {
+                return response()->json(['message' => 'Akun Super Admin tidak ditemukan di sistem.'], 401);
+            }
+        } else {
+            $user = User::with(['role', 'employee'])->where('email', $request->email)->first();
+
+            if (!$user || !Hash::check($request->password, $user->password)) {
+                return response()->json([
+                    'message' => 'Email atau kata sandi salah.'
+                ], 401);
+            }
         }
 
         $user->update(['last_login_at' => now()]);

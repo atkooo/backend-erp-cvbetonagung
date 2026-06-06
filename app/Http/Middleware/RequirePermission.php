@@ -77,7 +77,7 @@ class RequirePermission
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->is('api/auth/me') || $request->is('api/auth/logout')) {
+        if ($request->is('api/auth/me') || $request->is('api/auth/logout') || $request->is('api/hrd/attendances/scan')) {
             return $next($request);
         }
 

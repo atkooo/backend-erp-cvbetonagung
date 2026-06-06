@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FinanceController;
+use App\Http\Controllers\Api\HrdController;
+use App\Http\Controllers\Api\PayrollController;
 use App\Http\Controllers\Api\IdentityController;
 use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\MasterDataController;
@@ -21,7 +23,7 @@ Route::get('/health', function () {
 
 Route::post('auth/login', [AuthController::class, 'login']);
 
-Route::middleware(['api.token', 'permission'])->group(function () {
+Route::middleware(['auth:sanctum', 'permission'])->group(function () {
     Route::prefix('auth')->controller(AuthController::class)->group(function () {
         Route::get('me', 'me');
         Route::post('logout', 'logout');
@@ -204,6 +206,25 @@ Route::middleware(['api.token', 'permission'])->group(function () {
             'document-exports',
         ])
         ->controller(SupportController::class)
+        ->group(function () {
+            Route::get('/', 'index');
+            Route::post('/', 'store');
+            Route::get('/{id}', 'show')->whereUuid('id');
+            Route::match(['put', 'patch'], '/{id}', 'update')->whereUuid('id');
+            Route::delete('/{id}', 'destroy')->whereUuid('id');
+        });
+
+    Route::post('hrd/attendances/scan', [HrdController::class, 'scanAttendance']);
+
+    Route::prefix('hrd/{resource}')
+        ->whereIn('resource', [
+            'employee-details',
+            'employee-documents',
+            'leave-types',
+            'leaves',
+            'attendances',
+        ])
+        ->controller(HrdController::class)
         ->group(function () {
             Route::get('/', 'index');
             Route::post('/', 'store');

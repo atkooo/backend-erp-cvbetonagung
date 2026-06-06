@@ -3,126 +3,82 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\LoginRequest;
-use App\Models\User;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use App\Models\User;
 
 class AuthController extends Controller
 {
-    public function login(LoginRequest $request): JsonResponse
+    public function login(Request $request)
     {
-        $credentials = $request->validated();
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
 
-        if (!empty($credentials['otp'])) {
-            $secret = env('TOTP_SUPER_ADMIN_SECRET');
-            $superEmail = env('SUPER_ADMIN_EMAIL');
+        $user = User::with(['role', 'employee'])->where('email', $request->email)->first();
 
-            if ($credentials['email'] !== $superEmail || !\App\Helpers\TotpHelper::verify($secret, $credentials['otp'])) {
-                return response()->json([
-                    'message' => 'OTP khusus tidak valid.',
-                ], 422);
-            }
-
-            $user = User::query()
-                ->with(['role.permissions', 'employee'])
-                ->where('email', $superEmail)
-                ->first();
-
-            if ($user === null) {
-                // Cari role admin untuk diasosiasikan ke user baru
-                $role = \App\Models\Role::where('code', 'admin')->first();
-                $roleId = $role?->id;
-
-                if ($roleId === null) {
-                    $role = \App\Models\Role::create([
-                        'code' => 'admin',
-                        'name' => 'Administrator',
-                        'description' => 'Full access to ERP backend modules.'
-                    ]);
-                    $roleId = $role->id;
-                }
-
-                // Buat user baru secara otomatis
-                $user = User::create([
-                    'role_id' => $roleId,
-                    'name' => 'Super Admin',
-                    'email' => $superEmail,
-                    'password' => Hash::make(Str::random(32)),
-                    'status' => 'active',
-                ]);
-
-                $user = $user->fresh(['role.permissions', 'employee']);
-            } elseif ($user->status !== 'active') {
-                return response()->json([
-                    'message' => 'User super admin tidak aktif.',
-                ], 422);
-            }
-        } else {
-            $user = User::query()
-                ->with(['role.permissions', 'employee'])
-                ->where('email', $credentials['email'])
-                ->first();
-
-            if ($user === null || $user->status !== 'active' || ! Hash::check($credentials['password'], $user->password)) {
-                return response()->json([
-                    'message' => 'Invalid credentials.',
-                ], 422);
-            }
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'Email atau kata sandi salah.'
+            ], 401);
         }
 
-        $token = Str::random(64);
-        $user->forceFill([
-            'remember_token' => hash('sha256', $token),
-            'last_login_at' => now(),
-        ])->save();
+        $user->update(['last_login_at' => now()]);
+
+        $user->tokens()->delete();
+
+        $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'data' => [
                 'token_type' => 'Bearer',
                 'access_token' => $token,
-                'user' => $user->fresh(['role.permissions', 'employee']),
-            ],
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role ? [
+                        'id' => $user->role->id,
+                        'code' => $user->role->code,
+                        'name' => $user->role->name,
+                    ] : [
+                        'id' => '0',
+                        'code' => 'employee',
+                        'name' => 'Karyawan'
+                    ],
+                    'employee_id' => $user->employee->id ?? null
+                ]
+            ]
         ]);
     }
 
-    public function me(Request $request): JsonResponse
+    public function me(Request $request)
     {
-        $user = $this->userFromBearerToken($request);
-
-        if ($user === null) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
-        }
-
-        return response()->json(['data' => $user]);
+        $user = $request->user()->load(['role', 'employee']);
+        
+        return response()->json([
+            'data' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role ? [
+                    'id' => $user->role->id,
+                    'code' => $user->role->code,
+                    'name' => $user->role->name,
+                ] : [
+                    'id' => '0',
+                    'code' => 'employee',
+                    'name' => 'Karyawan'
+                ],
+                'employee_id' => $user->employee->id ?? null
+            ]
+        ]);
     }
 
-    public function logout(Request $request): JsonResponse
+    public function logout(Request $request)
     {
-        $user = $this->userFromBearerToken($request);
-
-        if ($user === null) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
-        }
-
-        $user->forceFill(['remember_token' => null])->save();
-
-        return response()->json(['message' => 'Logged out.']);
-    }
-
-    private function userFromBearerToken(Request $request): ?User
-    {
-        $token = $request->bearerToken();
-
-        if ($token === null || $token === '') {
-            return null;
-        }
-
-        return User::query()
-            ->with(['role.permissions', 'employee'])
-            ->where('remember_token', hash('sha256', $token))
-            ->first();
+        $request->user()->currentAccessToken()->delete();
+        return response()->json(['message' => 'Logged out successfully.']);
     }
 }

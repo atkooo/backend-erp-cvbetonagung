@@ -16,15 +16,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RbacSeeder::class,
-            ErpMasterDataSeeder::class,
-            MasterDataSeeder::class,
-            ErpInventorySeeder::class,
-            ErpSalesSeeder::class,
-            ErpProjectSeeder::class,
-            ErpFinanceSeeder::class,
-            ErpReturnSeeder::class,
-            ErpProductionSeeder::class,
-            ErpSupportSeeder::class,
+            AuthSeeder::class,
         ]);
     }
 }

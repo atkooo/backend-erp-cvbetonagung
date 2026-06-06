@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\CashTransaction;
+use App\Models\Account;
 use Illuminate\Support\Facades\DB;
 
 class FinanceWorkflowService
@@ -57,5 +59,26 @@ class FinanceWorkflowService
         }
 
         return 'paid';
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    public function recordCashTransaction(array $attributes): CashTransaction
+    {
+        return DB::transaction(function () use ($attributes): CashTransaction {
+            $account = Account::query()->lockForUpdate()->findOrFail($attributes['account_id']);
+            
+            $transaction = CashTransaction::create($attributes);
+
+            if ($transaction->type === 'in') {
+                $account->balance += $transaction->amount;
+            } else {
+                $account->balance -= $transaction->amount;
+            }
+            $account->save();
+
+            return $transaction;
+        });
     }
 }

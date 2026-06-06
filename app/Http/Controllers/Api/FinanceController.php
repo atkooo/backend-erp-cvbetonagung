@@ -8,6 +8,8 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Payment;
 use App\Models\ProjectTermin;
+use App\Models\Account;
+use App\Models\CashTransaction;
 use App\Services\FinanceWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -44,6 +46,18 @@ class FinanceController extends ApiResourceController
             'sortable' => ['phase', 'amount', 'due_date', 'status', 'paid_at'],
             'relations' => ['project', 'invoice'],
         ],
+        'accounts' => [
+            'model' => Account::class,
+            'searchable' => ['code', 'name', 'description'],
+            'sortable' => ['code', 'name', 'type', 'balance', 'currency'],
+            'relations' => [],
+        ],
+        'cash-transactions' => [
+            'model' => CashTransaction::class,
+            'searchable' => ['transaction_number', 'description', 'reference_type'],
+            'sortable' => ['transaction_date', 'transaction_number', 'amount', 'type', 'category'],
+            'relations' => ['account', 'recordedBy'],
+        ],
     ];
 
     public function __construct(private readonly FinanceWorkflowService $financeWorkflow)
@@ -65,6 +79,12 @@ class FinanceController extends ApiResourceController
 
     public function store(FinanceRequest $request, string $resource): JsonResponse
     {
+        if ($resource === 'cash-transactions') {
+            $transaction = $this->financeWorkflow->recordCashTransaction($request->validated());
+            $transaction->load(['account', 'recordedBy']);
+            return response()->json(['data' => $transaction], 201);
+        }
+
         return $this->storeResource($resource, $request->validated());
     }
 

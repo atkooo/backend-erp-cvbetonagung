@@ -64,6 +64,27 @@ class FinanceRequest extends FormRequest
                 'invoice_id' => [...$nullable, 'uuid', Rule::exists('invoices', 'id')],
                 'paid_at' => [...$nullable, 'date'],
             ],
+            'accounts' => [
+                'code' => [...$required, 'string', 'max:255', Rule::unique('accounts', 'code')->ignore($id)],
+                'name' => [...$required, 'string', 'max:255'],
+                'type' => [...$required, Rule::in(['asset', 'liability', 'equity', 'revenue', 'expense'])],
+                'balance' => ['sometimes', 'numeric'],
+                'currency' => ['sometimes', 'string', 'size:3'],
+                'description' => [...$nullable, 'string'],
+                'is_active' => ['sometimes', 'boolean'],
+            ],
+            'cash-transactions' => [
+                'transaction_number' => [...$required, 'string', 'max:255', Rule::unique('cash_transactions', 'transaction_number')->ignore($id)],
+                'account_id' => [...$required, 'uuid', Rule::exists('accounts', 'id')],
+                'transaction_date' => [...$required, 'date'],
+                'type' => [...$required, Rule::in(['in', 'out'])],
+                'amount' => [...$required, 'numeric', 'gt:0'],
+                'category' => [...$required, 'string', 'max:255'],
+                'description' => [...$nullable, 'string'],
+                'reference_type' => [...$nullable, 'string', 'max:255'],
+                'reference_id' => [...$nullable, 'uuid'],
+                'recorded_by' => [...$nullable, 'uuid', Rule::exists('users', 'id')],
+            ],
             default => [],
         };
     }

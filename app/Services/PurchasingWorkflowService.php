@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ProductStock;
 use App\Models\PurchaseOrder;
 use App\Models\StockMovement;
+use App\Models\SupplierPayable;
 use Illuminate\Support\Facades\DB;
 
 class PurchasingWorkflowService
@@ -60,6 +61,29 @@ class PurchasingWorkflowService
             $purchaseOrder->forceFill([
                 'status' => $this->purchaseOrderStatusFor($purchaseOrder->items()->get()),
             ])->save();
+
+            // Create Supplier Payable if fully or partially received
+            if ($purchaseOrder->status === 'fully_received' || $purchaseOrder->status === 'partially_received') {
+                $payableAmount = 0.0;
+                foreach ($purchaseOrder->items as $item) {
+                    $payableAmount += ($item->received_qty * $item->unit_price);
+                }
+
+                // Delete existing payable for this PO to regenerate (simplistic approach for now)
+                SupplierPayable::query()->where('purchase_order_id', $purchaseOrder->id)->delete();
+
+                if ($payableAmount > 0) {
+                    SupplierPayable::query()->create([
+                        'supplier_id' => $purchaseOrder->supplier_id,
+                        'purchase_order_id' => $purchaseOrder->id,
+                        'payable_number' => 'AP-' . date('Ymd') . '-' . rand(1000, 9999),
+                        'amount' => $payableAmount,
+                        'paid_amount' => 0,
+                        'due_date' => now()->addDays(30), // Default due date
+                        'status' => 'open',
+                    ]);
+                }
+            }
 
             return $purchaseOrder;
         });

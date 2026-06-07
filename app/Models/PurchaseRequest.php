@@ -4,11 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Model;
 
 class PurchaseRequest extends Model
 {
-    use HasFactory, HasUuids;
+    use HasFactory, HasUuids, GeneratesDocumentNumber;
+
+    public function documentNumberPrefix(): string
+    {
+        return 'PR';
+    }
+
+    public function documentNumberField(): string
+    {
+        return 'pr_number';
+    }
 
     protected $fillable = [
         'pr_number',

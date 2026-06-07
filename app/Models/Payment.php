@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
@@ -20,7 +21,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class Payment extends Model
 {
-    use HasUuids;
+    use HasUuids, GeneratesDocumentNumber;
+
+    public function documentNumberPrefix(): string
+    {
+        return 'PAY';
+    }
+
+    public function documentNumberField(): string
+    {
+        return 'payment_number';
+    }
 
     public const UPDATED_AT = null;
 

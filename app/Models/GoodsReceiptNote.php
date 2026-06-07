@@ -5,10 +5,21 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\GeneratesDocumentNumber;
 
 class GoodsReceiptNote extends Model
 {
-    use HasFactory, HasUuids;
+    use HasFactory, HasUuids, GeneratesDocumentNumber;
+
+    public function documentNumberPrefix(): string
+    {
+        return 'GRN';
+    }
+
+    public function documentNumberField(): string
+    {
+        return 'grn_number';
+    }
 
     protected $fillable = [
         'grn_number',

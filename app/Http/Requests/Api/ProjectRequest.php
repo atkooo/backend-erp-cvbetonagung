@@ -24,7 +24,7 @@ class ProjectRequest extends FormRequest
 
         return match ($resource) {
             'projects' => [
-                'code' => [...$required, 'string', 'max:255', Rule::unique('projects', 'code')->ignore($id)],
+                'code' => [...$nullable, 'string', 'max:255', Rule::unique('projects', 'code')->ignore($id)],
                 'customer_id' => [...$required, 'uuid', Rule::exists('customers', 'id')],
                 'quotation_id' => [...$nullable, 'uuid', Rule::exists('quotations', 'id')],
                 'sales_order_id' => [...$nullable, 'uuid', Rule::exists('sales_orders', 'id')],

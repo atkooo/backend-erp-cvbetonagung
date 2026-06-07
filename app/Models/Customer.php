@@ -5,12 +5,23 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['code', 'name', 'phone', 'email', 'city', 'address', 'status'])]
 class Customer extends Model
 {
-    use HasUuids;
+    use HasUuids, GeneratesDocumentNumber;
+
+    public function documentNumberPrefix(): string
+    {
+        return 'CUST';
+    }
+
+    public function documentNumberField(): string
+    {
+        return 'code';
+    }
 
     public function quotations(): HasMany
     {

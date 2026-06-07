@@ -24,7 +24,7 @@ class PurchasingRequest extends FormRequest
 
         return match ($resource) {
             'purchase-orders' => [
-                'po_number' => [...$required, 'string', 'max:255', Rule::unique('purchase_orders', 'po_number')->ignore($id)],
+                'po_number' => [...$nullable, 'string', 'max:255', Rule::unique('purchase_orders', 'po_number')->ignore($id)],
                 'supplier_id' => [...$required, 'uuid', Rule::exists('suppliers', 'id')],
                 'po_date' => [...$required, 'date'],
                 'total' => ['sometimes', 'numeric', 'min:0'],

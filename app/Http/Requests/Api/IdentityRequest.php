@@ -40,7 +40,7 @@ class IdentityRequest extends FormRequest
                 'last_login_at' => [...$nullable, 'date'],
             ],
             'employees' => [
-                'employee_number' => [...$required, 'string', 'max:255', Rule::unique('employees', 'employee_number')->ignore($id)],
+                'employee_number' => [...$nullable, 'string', 'max:255', Rule::unique('employees', 'employee_number')->ignore($id)],
                 'user_id' => [...$nullable, 'uuid', Rule::exists('users', 'id')],
                 'name' => [...$required, 'string', 'max:255'],
                 'role_name' => [...$required, 'string', 'max:255'],

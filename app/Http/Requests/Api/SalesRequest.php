@@ -24,7 +24,7 @@ class SalesRequest extends FormRequest
 
         return match ($resource) {
             'quotations' => [
-                'quotation_number' => [...$required, 'string', 'max:255', Rule::unique('quotations', 'quotation_number')->ignore($id)],
+                'quotation_number' => [...$nullable, 'string', 'max:255', Rule::unique('quotations', 'quotation_number')->ignore($id)],
                 'customer_id' => [...$required, 'uuid', Rule::exists('customers', 'id')],
                 'created_by' => [...$nullable, 'uuid', Rule::exists('users', 'id')],
                 'quotation_date' => [...$required, 'date'],
@@ -45,7 +45,7 @@ class SalesRequest extends FormRequest
             ],
             'sales-orders' => [
                 'quotation_id' => [...$nullable, 'uuid', Rule::exists('quotations', 'id')],
-                'order_number' => [...$required, 'string', 'max:255', Rule::unique('sales_orders', 'order_number')->ignore($id)],
+                'order_number' => [...$nullable, 'string', 'max:255', Rule::unique('sales_orders', 'order_number')->ignore($id)],
                 'customer_id' => [...$required, 'uuid', Rule::exists('customers', 'id')],
                 'order_date' => [...$required, 'date'],
                 'total' => ['sometimes', 'numeric', 'min:0'],
@@ -61,7 +61,7 @@ class SalesRequest extends FormRequest
                 'subtotal' => [...$required, 'numeric', 'min:0'],
             ],
             'delivery-orders' => [
-                'delivery_number' => [...$required, 'string', 'max:255', Rule::unique('delivery_orders', 'delivery_number')->ignore($id)],
+                'delivery_number' => [...$nullable, 'string', 'max:255', Rule::unique('delivery_orders', 'delivery_number')->ignore($id)],
                 'sales_order_id' => [...$required, 'uuid', Rule::exists('sales_orders', 'id')],
                 'customer_id' => [...$required, 'uuid', Rule::exists('customers', 'id')],
                 'delivery_date' => [...$nullable, 'date'],

@@ -32,7 +32,7 @@ class SalesWorkflowService
 
             $salesOrder = SalesOrder::query()->create([
                 'quotation_id' => $quotation->id,
-                'order_number' => $attributes['order_number'],
+                'order_number' => $attributes['order_number'] ?? null,
                 'customer_id' => $quotation->customer_id,
                 'order_date' => $attributes['order_date'],
                 'total' => $quotation->total,
@@ -72,7 +72,7 @@ class SalesWorkflowService
             abort_if($salesOrder->status === 'cancelled', 422, 'Cancelled sales order cannot be delivered.');
 
             $deliveryOrder = DeliveryOrder::query()->create([
-                'delivery_number' => $attributes['delivery_number'],
+                'delivery_number' => $attributes['delivery_number'] ?? null,
                 'sales_order_id' => $salesOrder->id,
                 'customer_id' => $salesOrder->customer_id,
                 'delivery_date' => $attributes['delivery_date'] ?? null,

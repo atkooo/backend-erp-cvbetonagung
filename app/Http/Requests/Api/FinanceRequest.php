@@ -24,9 +24,9 @@ class FinanceRequest extends FormRequest
 
         return match ($resource) {
             'invoices' => [
+                'invoice_number' => [...$nullable, 'string', 'max:255', Rule::unique('invoices', 'invoice_number')->ignore($id)],
                 'sales_order_id' => [...$nullable, 'uuid', Rule::exists('sales_orders', 'id')],
                 'project_id' => [...$nullable, 'uuid', Rule::exists('projects', 'id')],
-                'invoice_number' => [...$required, 'string', 'max:255', Rule::unique('invoices', 'invoice_number')->ignore($id)],
                 'customer_id' => [...$required, 'uuid', Rule::exists('customers', 'id')],
                 'invoice_date' => [...$required, 'date'],
                 'due_date' => [...$nullable, 'date', 'after_or_equal:invoice_date'],
@@ -46,7 +46,7 @@ class FinanceRequest extends FormRequest
             ],
             'payments' => [
                 'invoice_id' => [...$required, 'uuid', Rule::exists('invoices', 'id')],
-                'payment_number' => [...$required, 'string', 'max:255', Rule::unique('payments', 'payment_number')->ignore($id)],
+                'payment_number' => [...$nullable, 'string', 'max:255', Rule::unique('payments', 'payment_number')->ignore($id)],
                 'payment_date' => [...$required, 'date'],
                 'method' => [...$required, Rule::in(['cash', 'transfer', 'qris'])],
                 'amount' => [...$required, 'numeric', 'gt:0'],

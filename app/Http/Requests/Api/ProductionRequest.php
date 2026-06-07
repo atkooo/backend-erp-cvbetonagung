@@ -24,7 +24,7 @@ class ProductionRequest extends FormRequest
 
         return match ($resource) {
             'work-orders' => [
-                'work_order_number' => [...$required, 'string', 'max:255', Rule::unique('production_work_orders', 'work_order_number')->ignore($id)],
+                'work_order_number' => [...$nullable, 'string', 'max:255', Rule::unique('production_work_orders', 'work_order_number')->ignore($id)],
                 'product_id' => [...$required, 'uuid', Rule::exists('products', 'id')],
                 'sales_order_id' => [...$nullable, 'uuid', Rule::exists('sales_orders', 'id')],
                 'project_id' => [...$nullable, 'uuid', Rule::exists('projects', 'id')],

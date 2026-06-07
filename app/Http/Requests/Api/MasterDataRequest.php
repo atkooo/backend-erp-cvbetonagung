@@ -24,7 +24,7 @@ class MasterDataRequest extends FormRequest
 
         return match ($resource) {
             'customers' => [
-                'code' => [...$required, 'string', 'max:255', Rule::unique('customers', 'code')->ignore($id)],
+                'code' => [...$nullable, 'string', 'max:255', Rule::unique('customers', 'code')->ignore($id)],
                 'name' => [...$required, 'string', 'max:255'],
                 'phone' => [...$nullable, 'string', 'max:255'],
                 'email' => [...$nullable, 'email', 'max:255'],
@@ -33,7 +33,7 @@ class MasterDataRequest extends FormRequest
                 'status' => ['sometimes', Rule::in(['active', 'inactive'])],
             ],
             'suppliers' => [
-                'code' => [...$required, 'string', 'max:255', Rule::unique('suppliers', 'code')->ignore($id)],
+                'code' => [...$nullable, 'string', 'max:255', Rule::unique('suppliers', 'code')->ignore($id)],
                 'name' => [...$required, 'string', 'max:255'],
                 'contact_name' => [...$nullable, 'string', 'max:255'],
                 'phone' => [...$nullable, 'string', 'max:255'],
@@ -47,11 +47,11 @@ class MasterDataRequest extends FormRequest
                 'status' => ['sometimes', Rule::in(['active', 'inactive'])],
             ],
             'units' => [
-                'code' => [...$required, 'string', 'max:255', Rule::unique('units', 'code')->ignore($id)],
+                'code' => [...$nullable, 'string', 'max:255', Rule::unique('units', 'code')->ignore($id)],
                 'name' => [...$required, 'string', 'max:255'],
             ],
             'warehouses' => [
-                'code' => [...$required, 'string', 'max:255', Rule::unique('warehouses', 'code')->ignore($id)],
+                'code' => [...$nullable, 'string', 'max:255', Rule::unique('warehouses', 'code')->ignore($id)],
                 'name' => [...$required, 'string', 'max:255'],
                 'type' => [...$nullable, 'string', 'max:255'],
                 'address' => [...$nullable, 'string'],
@@ -60,20 +60,20 @@ class MasterDataRequest extends FormRequest
             'storage-locations' => [
                 'warehouse_id' => [...$required, 'uuid', Rule::exists('warehouses', 'id')],
                 'code' => [
-                    ...$required,
+                    ...$nullable,
                     'string',
                     'max:255',
                     Rule::unique('storage_locations', 'code')
                         ->where('warehouse_id', $this->input('warehouse_id'))
                         ->ignore($id),
                 ],
-                'name' => [...$nullable, 'string', 'max:255'],
+                'name' => [...$required, 'string', 'max:255'],
                 'description' => [...$nullable, 'string'],
             ],
             'products' => [
                 'category_id' => [...$nullable, 'uuid', Rule::exists('product_categories', 'id')],
                 'unit_id' => [...$nullable, 'uuid', Rule::exists('units', 'id')],
-                'sku' => [...$required, 'string', 'max:255', Rule::unique('products', 'sku')->ignore($id)],
+                'sku' => [...$nullable, 'string', 'max:255', Rule::unique('products', 'sku')->ignore($id)],
                 'name' => [...$required, 'string', 'max:255'],
                 'cost_price' => ['sometimes', 'numeric', 'min:0'],
                 'selling_price' => ['sometimes', 'numeric', 'min:0'],

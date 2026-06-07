@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -24,7 +25,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Project extends Model
 {
-    use HasUuids;
+    use HasUuids, GeneratesDocumentNumber;
+
+    public function documentNumberPrefix(): string
+    {
+        return 'PRJ';
+    }
+
+    public function documentNumberField(): string
+    {
+        return 'code';
+    }
 
     public function customer(): BelongsTo
     {

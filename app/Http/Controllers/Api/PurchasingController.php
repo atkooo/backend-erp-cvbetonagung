@@ -30,7 +30,7 @@ class PurchasingController extends ApiResourceController
             'model' => PurchaseRequest::class,
             'searchable' => ['pr_number', 'notes', 'department'],
             'sortable' => ['pr_number', 'request_date', 'required_date', 'status'],
-            'relations' => ['requester', 'items.product', 'purchaseOrders'],
+            'relations' => ['requester', 'items.product', 'items.product.unit', 'purchaseOrders'],
         ],
         'purchase-request-items' => [
             'model' => PurchaseRequestItem::class,
@@ -42,7 +42,7 @@ class PurchasingController extends ApiResourceController
             'model' => Rfq::class,
             'searchable' => ['rfq_number', 'notes'],
             'sortable' => ['rfq_number', 'rfq_date', 'valid_until', 'status'],
-            'relations' => ['purchaseRequest', 'supplier', 'items.product', 'purchaseOrders'],
+            'relations' => ['purchaseRequest', 'supplier', 'items.product', 'items.product.unit', 'purchaseOrders'],
         ],
         'rfq-items' => [
             'model' => RfqItem::class,
@@ -54,7 +54,7 @@ class PurchasingController extends ApiResourceController
             'model' => GoodsReceiptNote::class,
             'searchable' => ['grn_number', 'delivery_order_number', 'notes'],
             'sortable' => ['grn_number', 'receipt_date', 'status'],
-            'relations' => ['purchaseOrder', 'warehouse', 'receiver', 'items.product'],
+            'relations' => ['purchaseOrder', 'warehouse', 'receiver', 'items.product', 'items.product.unit'],
         ],
         'goods-receipt-note-items' => [
             'model' => GoodsReceiptNoteItem::class,
@@ -66,7 +66,7 @@ class PurchasingController extends ApiResourceController
             'model' => PurchaseOrder::class,
             'searchable' => ['po_number', 'notes'],
             'sortable' => ['po_number', 'po_date', 'status', 'total', 'created_at'],
-            'relations' => ['supplier', 'items.product', 'supplierPayables'],
+            'relations' => ['supplier', 'items.product', 'items.product.unit', 'supplierPayables'],
         ],
         'purchase-order-items' => [
             'model' => PurchaseOrderItem::class,

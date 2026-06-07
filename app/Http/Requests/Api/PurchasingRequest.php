@@ -40,6 +40,21 @@ class PurchasingRequest extends FormRequest
                 'received_qty' => ['sometimes', 'numeric', 'min:0'],
                 'subtotal' => [...$required, 'numeric', 'min:0'],
             ],
+            'purchase-requests' => [
+                'requester_id' => [...$required, 'uuid', Rule::exists('users', 'id')],
+                'request_date' => [...$required, 'date'],
+                'required_date' => [...$nullable, 'date'],
+                'department' => [...$required, 'string', 'max:255'],
+                'status' => ['sometimes', 'string', 'max:255'],
+                'notes' => [...$nullable, 'string'],
+            ],
+            'purchase-request-items' => [
+                'purchase_request_id' => [...$required, 'uuid', Rule::exists('purchase_requests', 'id')],
+                'product_id' => [...$required, 'uuid', Rule::exists('products', 'id')],
+                'description' => [...$nullable, 'string', 'max:255'],
+                'quantity' => [...$required, 'numeric', 'gt:0'],
+                'status' => ['sometimes', 'string', 'max:255'],
+            ],
             'supplier-payables' => [
                 'purchase_order_id' => [...$nullable, 'uuid', Rule::exists('purchase_orders', 'id')],
                 'supplier_id' => [...$required, 'uuid', Rule::exists('suppliers', 'id')],
@@ -65,6 +80,23 @@ class PurchasingRequest extends FormRequest
                 'product_id' => [...$required, 'uuid', Rule::exists('products', 'id')],
                 'quantity' => [...$required, 'numeric', 'gt:0'],
                 'notes' => [...$nullable, 'string'],
+            ],
+            'rfqs' => [
+                'rfq_number' => [...$required, 'string', 'max:255', Rule::unique('rfqs', 'rfq_number')->ignore($id)],
+                'purchase_request_id' => [...$nullable, 'string', 'max:255'], // The DB uses strings for purchase_request_id in Rfq model, it may not be UUID if it's a display string, but let's allow string
+                'supplier_id' => [...$required, 'uuid', Rule::exists('suppliers', 'id')],
+                'rfq_date' => [...$required, 'date'],
+                'valid_until' => [...$required, 'date'],
+                'status' => ['sometimes', 'string', 'max:255'],
+                'notes' => [...$nullable, 'string'],
+            ],
+            'rfq-items' => [
+                'rfq_id' => [...$required, 'uuid', Rule::exists('rfqs', 'id')],
+                'product_id' => [...$nullable, 'uuid', Rule::exists('products', 'id')], // We'll allow nullable if custom text
+                'description' => [...$nullable, 'string', 'max:255'],
+                'quantity' => [...$required, 'numeric', 'gt:0'],
+                'quoted_unit_price' => [...$required, 'numeric', 'min:0'],
+                'subtotal' => [...$required, 'numeric', 'min:0'],
             ],
             default => [],
         };

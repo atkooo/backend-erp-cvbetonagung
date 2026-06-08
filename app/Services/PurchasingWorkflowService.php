@@ -26,10 +26,29 @@ class PurchasingWorkflowService
             abort_if($purchaseOrder->status === 'cancelled', 422, 'Cancelled purchase order cannot be received.');
             abort_if($purchaseOrder->status === 'fully_received', 409, 'Purchase order has already been fully received.');
 
+            $itemQuantities = [];
+            if (isset($attributes['items'])) {
+                foreach ($attributes['items'] as $reqItem) {
+                    $itemQuantities[$reqItem['id']] = (float) $reqItem['quantity'];
+                }
+            }
+
             foreach ($purchaseOrder->items as $item) {
                 $remainingQty = (float) $item->quantity - (float) $item->received_qty;
 
-                if ($remainingQty <= 0) {
+                $qtyToReceive = $remainingQty;
+                if (isset($attributes['items'])) {
+                    if (!isset($itemQuantities[$item->id]) || $itemQuantities[$item->id] <= 0) {
+                        continue;
+                    }
+                    $qtyToReceive = $itemQuantities[$item->id];
+                }
+
+                if ($qtyToReceive > $remainingQty) {
+                    $qtyToReceive = $remainingQty;
+                }
+
+                if ($qtyToReceive <= 0) {
                     continue;
                 }
 
@@ -38,17 +57,17 @@ class PurchasingWorkflowService
                     'location_id' => $attributes['to_location_id'],
                 ]);
 
-                $stock->quantity = (float) ($stock->quantity ?? 0) + $remainingQty;
+                $stock->quantity = (float) ($stock->quantity ?? 0) + $qtyToReceive;
                 $stock->save();
 
-                $item->forceFill(['received_qty' => $item->quantity])->save();
+                $item->forceFill(['received_qty' => (float) $item->received_qty + $qtyToReceive])->save();
 
                 StockMovement::query()->create([
                     'product_id' => $item->product_id,
                     'from_location_id' => null,
                     'to_location_id' => $attributes['to_location_id'],
                     'type' => 'in',
-                    'quantity' => $remainingQty,
+                    'quantity' => $qtyToReceive,
                     'reference_type' => 'purchase_order',
                     'reference_id' => $purchaseOrder->id,
                     'reference_number' => $purchaseOrder->po_number,

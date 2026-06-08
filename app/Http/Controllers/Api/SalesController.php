@@ -2,16 +2,19 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\ApproveQuotationRequest;
+use App\Http\Requests\Api\CreateDeliveryOrderRequest;
 use App\Http\Requests\Api\SalesRequest;
+use App\Http\Requests\Api\ShipDeliveryOrderRequest;
+use App\Models\DeliveryOrder;
+use App\Models\DeliveryOrderItem;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
-use App\Models\DeliveryOrder;
-use App\Models\DeliveryOrderItem;
-use Illuminate\Http\Request;
+use App\Services\SalesWorkflowService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class SalesController extends ApiResourceController
@@ -65,10 +68,9 @@ class SalesController extends ApiResourceController
         return $this->indexResource($request, $resource);
     }
 
-    public function store(Request $request, string $resource): JsonResponse
+    public function store(SalesRequest $request, string $resource): JsonResponse
     {
-        // Validation could be added here
-        return $this->storeResource($resource, $request->all());
+        return $this->storeResource($resource, $request->validated());
     }
 
     public function show(string $resource, string $id): JsonResponse
@@ -76,9 +78,9 @@ class SalesController extends ApiResourceController
         return $this->showResource($resource, $id);
     }
 
-    public function update(Request $request, string $resource, string $id): JsonResponse
+    public function update(SalesRequest $request, string $resource, string $id): JsonResponse
     {
-        return $this->updateResource($resource, $id, $request->all());
+        return $this->updateResource($resource, $id, $request->validated());
     }
 
     public function destroy(string $resource, string $id): JsonResponse|Response
@@ -86,26 +88,29 @@ class SalesController extends ApiResourceController
         return $this->destroyResource($resource, $id);
     }
 
-    // Workflow actions (placeholders for approve, deliver, ship)
-    public function approveQuotation(Request $request, string $id): JsonResponse
+    // Workflow actions (using SalesWorkflowService)
+    public function approveQuotation(ApproveQuotationRequest $request, string $id, SalesWorkflowService $service): JsonResponse
     {
-        $quote = Quotation::findOrFail($id);
-        $quote->update(['status' => 'Disetujui']);
-        return response()->json(['message' => 'Quotation approved', 'data' => $quote]);
+        $salesOrder = $service->approveQuotation($id, $request->validated());
+        $config = $this->resourceConfig('sales-orders');
+
+        return response()->json(['data' => $salesOrder->fresh($config['relations'] ?? [])], 201);
     }
 
-    public function createDeliveryOrder(Request $request, string $id): JsonResponse
+    public function createDeliveryOrder(CreateDeliveryOrderRequest $request, string $id, SalesWorkflowService $service): JsonResponse
     {
-        $so = SalesOrder::findOrFail($id);
-        $so->update(['status' => 'Sebagian Dikirim']);
-        return response()->json(['message' => 'Delivery order created for SO', 'data' => $so]);
+        $deliveryOrder = $service->createDeliveryOrder($id, $request->validated());
+        $config = $this->resourceConfig('delivery-orders');
+
+        return response()->json(['data' => $deliveryOrder->fresh($config['relations'] ?? [])], 201);
     }
 
-    public function shipDeliveryOrder(Request $request, string $id): JsonResponse
+    public function shipDeliveryOrder(ShipDeliveryOrderRequest $request, string $id, SalesWorkflowService $service): JsonResponse
     {
-        $do = DeliveryOrder::findOrFail($id);
-        $do->update(['status' => 'Terkirim']);
-        return response()->json(['message' => 'Delivery order shipped', 'data' => $do]);
+        $deliveryOrder = $service->shipDeliveryOrder($id, $request->validated());
+        $config = $this->resourceConfig('delivery-orders');
+
+        return response()->json(['data' => $deliveryOrder->fresh($config['relations'] ?? [])], 200);
     }
 
     protected function filterableColumns(): array

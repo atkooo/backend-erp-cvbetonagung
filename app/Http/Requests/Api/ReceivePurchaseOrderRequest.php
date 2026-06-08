@@ -22,6 +22,9 @@ class ReceivePurchaseOrderRequest extends FormRequest
             'handled_by' => ['sometimes', 'nullable', 'uuid', Rule::exists('users', 'id')],
             'movement_at' => ['required', 'date'],
             'notes' => ['sometimes', 'nullable', 'string'],
+            'items' => ['sometimes', 'array'],
+            'items.*.id' => ['required_with:items', 'uuid', Rule::exists('purchase_order_items', 'id')],
+            'items.*.quantity' => ['required_with:items', 'numeric', 'min:0'],
         ];
     }
 }

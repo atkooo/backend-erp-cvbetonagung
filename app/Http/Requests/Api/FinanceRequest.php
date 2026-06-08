@@ -35,6 +35,11 @@ class FinanceRequest extends FormRequest
                 'total' => ['sometimes', 'numeric', 'min:0'],
                 'paid_amount' => ['sometimes', 'numeric', 'min:0'],
                 'status' => ['sometimes', Rule::in(['unpaid', 'partial', 'paid', 'overdue', 'cancelled'])],
+                'items' => ['sometimes', 'array', 'min:1'],
+                'items.*.product_id' => [...$nullable, 'uuid', Rule::exists('products', 'id')],
+                'items.*.description' => [...$nullable, 'string', 'max:255'],
+                'items.*.quantity' => [...$required, 'numeric', 'gt:0'],
+                'items.*.unit_price' => [...$required, 'numeric', 'min:0'],
             ],
             'invoice-items' => [
                 'invoice_id' => [...$required, 'uuid', Rule::exists('invoices', 'id')],

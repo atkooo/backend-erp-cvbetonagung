@@ -72,10 +72,15 @@ class SalesOrder extends Model
         return $this->hasMany(ProductionWorkOrder::class);
     }
 
+    protected function serializeDate(\DateTimeInterface $date): string
+    {
+        return $date->format('Y-m-d');
+    }
+
     protected function casts(): array
     {
         return [
-            'order_date' => 'date',
+            'order_date' => 'date:Y-m-d',
             'total' => 'decimal:2',
         ];
     }

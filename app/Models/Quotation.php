@@ -60,11 +60,16 @@ class Quotation extends Model
         return $this->hasMany(Project::class);
     }
 
+    protected function serializeDate(\DateTimeInterface $date): string
+    {
+        return $date->format('Y-m-d');
+    }
+
     protected function casts(): array
     {
         return [
-            'quotation_date' => 'date',
-            'valid_until' => 'date',
+            'quotation_date' => 'date:Y-m-d',
+            'valid_until' => 'date:Y-m-d',
             'subtotal' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'total' => 'decimal:2',

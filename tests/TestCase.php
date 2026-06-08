@@ -48,7 +48,6 @@ abstract class TestCase extends BaseTestCase
             return $this->apiToken;
         }
 
-        $token = Str::random(64);
         $user = User::query()->first() ?? User::factory()->create([
             'role_id' => $this->apiTestRole()->id,
             'status' => 'active',
@@ -56,8 +55,9 @@ abstract class TestCase extends BaseTestCase
         $user->forceFill([
             'role_id' => $user->role_id ?? $this->apiTestRole()->id,
             'status' => 'active',
-            'remember_token' => hash('sha256', $token),
         ])->save();
+
+        $token = $user->createToken('api-test')->plainTextToken;
 
         return $this->apiToken = $token;
     }

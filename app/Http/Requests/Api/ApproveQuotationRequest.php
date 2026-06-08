@@ -19,7 +19,7 @@ class ApproveQuotationRequest extends FormRequest
     {
         return [
             'order_number' => ['nullable', 'string', 'max:255', Rule::unique('sales_orders', 'order_number')],
-            'order_date' => ['required', 'date'],
+            'order_date' => ['sometimes', 'date'],
             'status' => ['sometimes', Rule::in(['draft', 'processing', 'completed', 'cancelled'])],
             'notes' => ['sometimes', 'nullable', 'string'],
         ];

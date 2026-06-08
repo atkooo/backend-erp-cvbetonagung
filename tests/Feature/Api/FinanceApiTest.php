@@ -183,4 +183,39 @@ class FinanceApiTest extends TestCase
             'amount' => 100000,
         ])->assertUnprocessable();
     }
+
+    public function test_create_invoice_clones_sales_order_items(): void
+    {
+        $this->seed();
+
+        $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
+        $salesOrder = SalesOrder::query()->where('order_number', 'SO-INIT')->firstOrFail();
+
+        $this->assertNotEmpty($salesOrder->items);
+        $totalItemsSubtotal = $salesOrder->items->sum('subtotal');
+
+        $response = $this->postJson('/api/finance/invoices', [
+            'sales_order_id' => $salesOrder->id,
+            'customer_id' => $customer->id,
+            'invoice_date' => '2026-06-05',
+            'due_date' => '2026-06-20',
+            'tax_amount' => 10000,
+        ]);
+
+        $response->assertCreated();
+        $invoiceId = $response->json('data.id');
+
+        $invoice = Invoice::query()->with('items')->findOrFail($invoiceId);
+        $this->assertCount($salesOrder->items->count(), $invoice->items);
+        $this->assertEquals($totalItemsSubtotal, $invoice->subtotal);
+        $this->assertEquals($totalItemsSubtotal + 10000, $invoice->total);
+
+        foreach ($salesOrder->items as $soItem) {
+            $matchingInvoiceItem = $invoice->items->firstWhere('product_id', $soItem->product_id);
+            $this->assertNotNull($matchingInvoiceItem);
+            $this->assertEquals($soItem->quantity, $matchingInvoiceItem->quantity);
+            $this->assertEquals($soItem->unit_price, $matchingInvoiceItem->unit_price);
+            $this->assertEquals($soItem->subtotal, $matchingInvoiceItem->subtotal);
+        }
+    }
 }

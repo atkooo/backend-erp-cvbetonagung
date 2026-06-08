@@ -34,6 +34,11 @@ class SalesRequest extends FormRequest
                 'total' => ['sometimes', 'numeric', 'min:0'],
                 'status' => ['sometimes', Rule::in(['draft', 'sent', 'approved', 'rejected'])],
                 'notes' => [...$nullable, 'string'],
+                'items' => ['sometimes', 'array', 'min:1'],
+                'items.*.product_id' => [...$required, 'uuid', Rule::exists('products', 'id')],
+                'items.*.description' => [...$nullable, 'string', 'max:255'],
+                'items.*.quantity' => [...$required, 'numeric', 'gt:0'],
+                'items.*.unit_price' => [...$required, 'numeric', 'min:0'],
             ],
             'quotation-items' => [
                 'quotation_id' => [...$required, 'uuid', Rule::exists('quotations', 'id')],
@@ -51,6 +56,11 @@ class SalesRequest extends FormRequest
                 'total' => ['sometimes', 'numeric', 'min:0'],
                 'status' => ['sometimes', Rule::in(['draft', 'processing', 'completed', 'cancelled'])],
                 'notes' => [...$nullable, 'string'],
+                'items' => ['sometimes', 'array', 'min:1'],
+                'items.*.product_id' => [...$required, 'uuid', Rule::exists('products', 'id')],
+                'items.*.description' => [...$nullable, 'string', 'max:255'],
+                'items.*.quantity' => [...$required, 'numeric', 'gt:0'],
+                'items.*.unit_price' => [...$required, 'numeric', 'min:0'],
             ],
             'sales-order-items' => [
                 'sales_order_id' => [...$required, 'uuid', Rule::exists('sales_orders', 'id')],

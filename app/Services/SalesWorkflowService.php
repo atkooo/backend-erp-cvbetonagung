@@ -34,7 +34,7 @@ class SalesWorkflowService
                 'quotation_id' => $quotation->id,
                 'order_number' => $attributes['order_number'] ?? null,
                 'customer_id' => $quotation->customer_id,
-                'order_date' => $attributes['order_date'],
+                'order_date' => $attributes['order_date'] ?? date('Y-m-d'),
                 'total' => $quotation->total,
                 'status' => $attributes['status'] ?? 'processing',
                 'notes' => $attributes['notes'] ?? $quotation->notes,

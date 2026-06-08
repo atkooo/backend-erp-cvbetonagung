@@ -8,6 +8,7 @@ use App\Models\ProductStock;
 use App\Models\StockMovement;
 use App\Models\StorageLocation;
 use App\Models\User;
+use App\Models\Quotation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -325,5 +326,133 @@ class SalesApiTest extends TestCase
             'quotation_date' => '2026-06-05',
             'status' => 'processing',
         ])->assertUnprocessable();
+    }
+
+    public function test_create_quotation_with_items_calculates_total_and_formats_dates(): void
+    {
+        $this->seed();
+
+        $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
+        $product = Product::query()->where('sku', 'PRC-0001')->firstOrFail();
+
+        $response = $this->postJson('/api/sales/quotations', [
+            'quotation_number' => 'QUO-WITH-ITEMS-1',
+            'customer_id' => $customer->id,
+            'quotation_date' => '2026-06-05',
+            'valid_until' => '2026-06-19',
+            'tax_amount' => 0,
+            'status' => 'draft',
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'quantity' => 2,
+                    'unit_price' => 150000,
+                    'description' => 'Test Item'
+                ]
+            ]
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.subtotal', '300000.00')
+            ->assertJsonPath('data.total', '300000.00')
+            ->assertJsonPath('data.quotation_date', '2026-06-05')
+            ->assertJsonPath('data.valid_until', '2026-06-19')
+            ->assertJsonCount(1, 'data.items');
+
+        $this->assertDatabaseHas('quotation_items', [
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit_price' => 150000,
+            'subtotal' => 300000,
+        ]);
+    }
+
+    public function test_create_sales_order_with_items_calculates_total_and_formats_dates(): void
+    {
+        $this->seed();
+
+        $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
+        $product = Product::query()->where('sku', 'PRC-0001')->firstOrFail();
+
+        $response = $this->postJson('/api/sales/sales-orders', [
+            'order_number' => 'SO-WITH-ITEMS-1',
+            'customer_id' => $customer->id,
+            'order_date' => '2026-06-06',
+            'status' => 'draft',
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'quantity' => 3,
+                    'unit_price' => 120000,
+                    'description' => 'SO Test Item'
+                ]
+            ]
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.total', '360000.00')
+            ->assertJsonPath('data.order_date', '2026-06-06')
+            ->assertJsonCount(1, 'data.items');
+
+        $this->assertDatabaseHas('sales_order_items', [
+            'product_id' => $product->id,
+            'quantity' => 3,
+            'unit_price' => 120000,
+            'subtotal' => 360000,
+        ]);
+    }
+
+    public function test_create_sales_order_clones_quotation_items_and_approves_quotation(): void
+    {
+        $this->seed();
+
+        $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
+        $product = Product::query()->where('sku', 'PRC-0001')->firstOrFail();
+
+        $quotation = Quotation::query()->create([
+            'quotation_number' => 'QUO-REF-123',
+            'customer_id' => $customer->id,
+            'quotation_date' => '2026-06-05',
+            'subtotal' => 400000,
+            'tax_amount' => 0,
+            'total' => 400000,
+            'status' => 'sent',
+        ]);
+
+        $quotation->items()->create([
+            'product_id' => $product->id,
+            'description' => 'Reference Item',
+            'quantity' => 4,
+            'unit_price' => 100000,
+            'subtotal' => 400000,
+        ]);
+
+        $response = $this->postJson('/api/sales/sales-orders', [
+            'quotation_id' => $quotation->id,
+            'order_number' => 'SO-REF-123',
+            'customer_id' => $customer->id,
+            'order_date' => '2026-06-06',
+            'status' => 'draft',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.total', '400000.00')
+            ->assertJsonCount(1, 'data.items')
+            ->assertJsonPath('data.items.0.product.sku', 'PRC-0001');
+
+        $this->assertDatabaseHas('quotations', [
+            'id' => $quotation->id,
+            'status' => 'approved',
+        ]);
+
+        $this->assertDatabaseHas('sales_order_items', [
+            'product_id' => $product->id,
+            'quantity' => 4,
+            'unit_price' => 100000,
+            'subtotal' => 400000,
+        ]);
     }
 }

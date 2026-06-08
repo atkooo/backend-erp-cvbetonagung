@@ -19,7 +19,7 @@ class VerifyPaymentRequest extends FormRequest
     {
         return [
             'verified_by' => ['sometimes', 'nullable', 'uuid', Rule::exists('users', 'id')],
-            'verified_at' => ['required', 'date'],
+            'verified_at' => ['sometimes', 'required', 'date'],
             'notes' => ['sometimes', 'nullable', 'string'],
         ];
     }

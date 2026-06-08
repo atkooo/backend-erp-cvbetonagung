@@ -25,6 +25,10 @@ class DatabaseSeeder extends Seeder
             ErpReturnSeeder::class,
             ErpProductionSeeder::class,
             ErpSupportSeeder::class,
+            TrialCustomerSeeder::class,
+            TrialSupplierSeeder::class,
+            TrialProductSeeder::class,
+            TrialProjectSeeder::class,
         ]);
     }
 }

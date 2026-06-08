@@ -41,7 +41,10 @@ class AuthApiTest extends TestCase
         $this->withToken($token)
             ->postJson('/api/auth/logout')
             ->assertOk()
-            ->assertJsonPath('message', 'Logged out.');
+            ->assertJsonPath('message', 'Logged out successfully.');
+
+        \Illuminate\Support\Facades\Auth::forgetUser();
+        \Illuminate\Support\Facades\Auth::guard('sanctum')->forgetUser();
 
         $this->withToken($token)
             ->getJson('/api/auth/me')
@@ -81,12 +84,11 @@ class AuthApiTest extends TestCase
             'code' => 'no-access',
             'name' => 'No Access',
         ]);
-        $token = Str::random(64);
         $user = User::factory()->create([
             'role_id' => $role->id,
             'status' => 'active',
         ]);
-        $user->forceFill(['remember_token' => hash('sha256', $token)])->save();
+        $token = $user->createToken('test-token')->plainTextToken;
 
         $this->withToken($token)
             ->getJson('/api/master-data/customers')

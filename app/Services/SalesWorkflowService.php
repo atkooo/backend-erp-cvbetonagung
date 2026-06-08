@@ -71,6 +71,10 @@ class SalesWorkflowService
             abort_if($salesOrder->deliveryOrders()->exists(), 409, 'Sales order already has a delivery order.');
             abort_if($salesOrder->status === 'cancelled', 422, 'Cancelled sales order cannot be delivered.');
 
+            if ($salesOrder->status === 'draft') {
+                $salesOrder->forceFill(['status' => 'processing'])->save();
+            }
+
             $deliveryOrder = DeliveryOrder::query()->create([
                 'delivery_number' => $attributes['delivery_number'] ?? null,
                 'sales_order_id' => $salesOrder->id,

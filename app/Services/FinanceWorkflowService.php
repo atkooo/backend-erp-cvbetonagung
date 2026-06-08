@@ -39,8 +39,8 @@ class FinanceWorkflowService
 
             $payment->forceFill([
                 'status' => 'verified',
-                'verified_by' => $attributes['verified_by'] ?? $payment->verified_by,
-                'verified_at' => $attributes['verified_at'],
+                'verified_by' => $attributes['verified_by'] ?? $payment->verified_by ?? auth()->id(),
+                'verified_at' => $attributes['verified_at'] ?? now()->toDateTimeString(),
                 'notes' => $attributes['notes'] ?? $payment->notes,
             ])->save();
 

@@ -19,7 +19,7 @@ class AuthController extends Controller
 
         if ($request->filled('otp')) {
             if ($request->otp !== 'SA-2026') {
-                return response()->json(['message' => 'Kode OTP Super Admin tidak valid.'], 401);
+                return response()->json(['message' => 'Kode OTP Super Admin tidak valid.'], 422);
             }
             // Cari user pertama yang memiliki role admin
             $user = User::with(['role', 'employee'])->whereHas('role', function($q) {
@@ -27,15 +27,15 @@ class AuthController extends Controller
             })->first();
 
             if (!$user) {
-                return response()->json(['message' => 'Akun Super Admin tidak ditemukan di sistem.'], 401);
+                return response()->json(['message' => 'Akun Super Admin tidak ditemukan di sistem.'], 422);
             }
         } else {
             $user = User::with(['role', 'employee'])->where('email', $request->email)->first();
 
-            if (!$user || !Hash::check($request->password, $user->password)) {
+            if (!$user || !Hash::check($request->password, $user->password) || $user->status !== 'active') {
                 return response()->json([
                     'message' => 'Email atau kata sandi salah.'
-                ], 401);
+                ], 422);
             }
         }
 

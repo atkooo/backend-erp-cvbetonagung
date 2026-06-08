@@ -89,6 +89,25 @@ class SalesController extends ApiResourceController
             return $this->updateWithItems($resource, $id, $request->validated());
         }
 
+        if ($resource === 'delivery-orders') {
+            $attributes = $request->validated();
+            $config = $this->resourceConfig($resource);
+            $model = $this->findResourceModel($config, $id);
+
+            DB::transaction(function () use ($model, $attributes) {
+                $model->update($attributes);
+
+                if (($attributes['status'] ?? '') === 'received' && $model->sales_order_id) {
+                    $salesOrder = SalesOrder::query()->find($model->sales_order_id);
+                    if ($salesOrder) {
+                        $salesOrder->forceFill(['status' => 'completed'])->save();
+                    }
+                }
+            });
+
+            return response()->json(['data' => $model->fresh($config['relations'] ?? [])]);
+        }
+
         return $this->updateResource($resource, $id, $request->validated());
     }
 

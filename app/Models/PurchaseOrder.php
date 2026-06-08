@@ -23,6 +23,11 @@ class PurchaseOrder extends Model
 {
     use HasUuids, GeneratesDocumentNumber;
 
+    protected $appends = [
+        'purchase_number',
+        'order_date',
+    ];
+
     public function documentNumberPrefix(): string
     {
         return 'PO';
@@ -74,5 +79,15 @@ class PurchaseOrder extends Model
             'po_date' => 'date',
             'total' => 'decimal:2',
         ];
+    }
+
+    public function getPurchaseNumberAttribute()
+    {
+        return $this->po_number;
+    }
+
+    public function getOrderDateAttribute()
+    {
+        return $this->po_date;
     }
 }

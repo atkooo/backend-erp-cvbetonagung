@@ -178,6 +178,72 @@ class PurchasingApiTest extends TestCase
         $this->assertSame($admin->id, $movement->handled_by);
     }
 
+    public function test_goods_receipts_frontend_endpoint_can_create_manual_grn_and_stock_movement(): void
+    {
+        $this->seed();
+
+        $product = Product::query()->where('sku', 'MTL-0001')->firstOrFail();
+        $location = StorageLocation::query()->where('code', 'DEFAULT')->firstOrFail();
+        $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
+
+        ProductStock::query()->updateOrCreate(
+            [
+                'product_id' => $product->id,
+                'location_id' => $location->id,
+            ],
+            ['quantity' => 0],
+        );
+
+        $response = $this->postJson('/api/purchasing/goods-receipts', [
+            'purchase_order_id' => null,
+            'to_location_id' => $location->id,
+            'received_by' => $admin->id,
+            'receipt_date' => '2026-06-06',
+            'delivery_order_number' => 'SJ-FE-001',
+            'status' => 'posted',
+            'notes' => 'Manual GRN from frontend endpoint.',
+            'items' => [
+                [
+                    'purchase_order_item_id' => null,
+                    'product_id' => $product->id,
+                    'received_quantity' => 2,
+                    'rejected_quantity' => 0,
+                    'notes' => 'Received via FE payload.',
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.purchase_order_id', null)
+            ->assertJsonPath('data.to_location_id', $location->id)
+            ->assertJsonPath('data.items.0.product.sku', 'MTL-0001')
+            ->assertJsonPath('data.items.0.received_quantity', '2.00')
+            ->assertJsonPath('data.items.0.rejected_quantity', '0.00');
+
+        $grnNumber = $response->json('data.grn_number');
+
+        $this->getJson('/api/purchasing/goods-receipts?q='.$grnNumber)
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1);
+
+        $stock = ProductStock::query()
+            ->where('product_id', $product->id)
+            ->where('location_id', $location->id)
+            ->firstOrFail();
+
+        $this->assertSame('2.00', $stock->quantity);
+
+        $movement = StockMovement::query()
+            ->where('reference_type', 'goods_receipt')
+            ->where('reference_number', $grnNumber)
+            ->firstOrFail();
+
+        $this->assertSame('in', $movement->type);
+        $this->assertSame('2.00', $movement->quantity);
+        $this->assertSame($admin->id, $movement->handled_by);
+    }
+
     public function test_purchasing_api_rejects_invalid_purchase_order_status(): void
     {
         $this->seed();

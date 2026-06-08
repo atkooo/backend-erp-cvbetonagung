@@ -3,10 +3,10 @@
 namespace Database\Seeders;
 
 use App\Models\Customer;
+use App\Models\Employee;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductStock;
-use App\Models\StockMovement;
 use App\Models\StorageLocation;
 use App\Models\Supplier;
 use App\Models\Unit;
@@ -135,8 +135,6 @@ class MasterDataSeeder extends Seeder
             ['sku' => 'BBK-PSR-001', 'location_code' => 'PRD-MAT', 'quantity' => 2500],
         ];
 
-        $admin = User::query()->where('email', 'admin@example.com')->first();
-
         foreach ($initialStocks as $stock) {
             $product = Product::query()->where('sku', $stock['sku'])->first();
             $location = StorageLocation::query()->where('code', $stock['location_code'])->first();
@@ -149,20 +147,76 @@ class MasterDataSeeder extends Seeder
                 ['product_id' => $product->id, 'location_id' => $location->id],
                 ['quantity' => $stock['quantity']],
             );
+        }
 
-            StockMovement::query()->updateOrCreate(
+        $employees = [
+            [
+                'employee_number' => 'EMP-ADM-001',
+                'email' => 'admin@example.com',
+                'name' => 'System Administrator',
+                'role_name' => 'Administrator',
+                'department' => 'Management',
+                'employee_type' => 'permanent',
+            ],
+            [
+                'employee_number' => 'EMP-INV-001',
+                'email' => 'inventory@example.com',
+                'name' => 'Inventory User',
+                'role_name' => 'Kepala Gudang',
+                'department' => 'Gudang',
+                'employee_type' => 'permanent',
+            ],
+            [
+                'employee_number' => 'EMP-PUR-001',
+                'email' => 'purchasing@example.com',
+                'name' => 'Purchasing User',
+                'role_name' => 'Purchasing',
+                'department' => 'Purchasing',
+                'employee_type' => 'permanent',
+            ],
+            [
+                'employee_number' => 'EMP-BIL-001',
+                'email' => 'billing@example.com',
+                'name' => 'Billing User',
+                'role_name' => 'Billing AR',
+                'department' => 'Finance',
+                'employee_type' => 'permanent',
+            ],
+            [
+                'employee_number' => 'EMP-CAS-001',
+                'email' => 'cashier@example.com',
+                'name' => 'Cashier User',
+                'role_name' => 'Kasir',
+                'department' => 'Finance',
+                'employee_type' => 'permanent',
+            ],
+            [
+                'employee_number' => 'EMP-PRD-001',
+                'email' => 'production@example.com',
+                'name' => 'Production User',
+                'role_name' => 'Operator Produksi',
+                'department' => 'Produksi',
+                'employee_type' => 'permanent',
+            ],
+        ];
+
+        foreach ($employees as $employee) {
+            $user = User::query()->where('email', $employee['email'])->first();
+
+            Employee::query()->updateOrCreate(
+                ['employee_number' => $employee['employee_number']],
                 [
-                    'reference_type' => 'seed',
-                    'reference_number' => 'SEED-' . $product->sku . '-' . $location->code,
-                    'product_id' => $product->id,
-                ],
-                [
-                    'to_location_id' => $location->id,
-                    'type' => 'in',
-                    'quantity' => $stock['quantity'],
-                    'handled_by' => $admin?->id,
-                    'notes' => 'Initial stock from MasterDataSeeder.',
-                    'movement_at' => now(),
+                    'user_id' => $user?->id,
+                    'name' => $employee['name'],
+                    'role_name' => $employee['role_name'],
+                    'department' => $employee['department'],
+                    'phone' => null,
+                    'address' => null,
+                    'join_date' => null,
+                    'employee_type' => $employee['employee_type'],
+                    'daily_rate' => 0,
+                    'piece_rate' => 0,
+                    'status' => 'active',
                 ],
             );
         }

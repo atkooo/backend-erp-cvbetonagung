@@ -25,6 +25,7 @@ class GoodsReceiptNote extends Model
         'grn_number',
         'purchase_order_id',
         'warehouse_id',
+        'to_location_id',
         'received_by',
         'receipt_date',
         'delivery_order_number',
@@ -44,6 +45,11 @@ class GoodsReceiptNote extends Model
     public function warehouse()
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    public function toLocation()
+    {
+        return $this->belongsTo(StorageLocation::class, 'to_location_id');
     }
 
     public function receiver()

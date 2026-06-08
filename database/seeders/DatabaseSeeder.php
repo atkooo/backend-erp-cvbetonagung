@@ -18,17 +18,7 @@ class DatabaseSeeder extends Seeder
             RbacSeeder::class,
             ErpMasterDataSeeder::class,
             MasterDataSeeder::class,
-            ErpInventorySeeder::class,
-            ErpSalesSeeder::class,
-            ErpProjectSeeder::class,
-            ErpFinanceSeeder::class,
-            ErpReturnSeeder::class,
-            ErpProductionSeeder::class,
-            ErpSupportSeeder::class,
-            TrialCustomerSeeder::class,
-            TrialSupplierSeeder::class,
-            TrialProductSeeder::class,
-            TrialProjectSeeder::class,
+            AuthSeeder::class,
         ]);
     }
 }

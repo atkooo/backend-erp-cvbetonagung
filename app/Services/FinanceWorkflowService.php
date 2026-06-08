@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\CashTransaction;
 use App\Models\Account;
+use App\Models\SupplierPayable;
 use Illuminate\Support\Facades\DB;
 
 class FinanceWorkflowService
@@ -30,6 +31,9 @@ class FinanceWorkflowService
                 ->whereKey($payment->invoice_id)
                 ->firstOrFail();
 
+            $remainingAmount = max(0, (float) $invoice->total - (float) $invoice->paid_amount);
+            abort_if((float) $payment->amount > $remainingAmount, 422, 'Payment amount cannot exceed remaining AR balance.');
+
             $newPaidAmount = (float) $invoice->paid_amount + (float) $payment->amount;
 
             $invoice->forceFill([
@@ -46,6 +50,48 @@ class FinanceWorkflowService
 
             return $payment;
         });
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    public function paySupplierPayable(string $id, array $attributes): SupplierPayable
+    {
+        return DB::transaction(function () use ($id, $attributes): SupplierPayable {
+            $payable = SupplierPayable::query()
+                ->with(['supplier', 'purchaseOrder'])
+                ->lockForUpdate()
+                ->whereKey($id)
+                ->firstOrFail();
+
+            abort_if($payable->status === 'cancelled', 422, 'Cancelled AP cannot be paid.');
+
+            $remainingAmount = max(0, (float) $payable->amount - (float) $payable->paid_amount);
+            abort_if($remainingAmount <= 0, 409, 'AP has already been fully paid.');
+            abort_if((float) $attributes['amount'] > $remainingAmount, 422, 'Payment amount cannot exceed remaining AP balance.');
+
+            $newPaidAmount = (float) $payable->paid_amount + (float) $attributes['amount'];
+
+            $payable->forceFill([
+                'paid_amount' => $newPaidAmount,
+                'status' => $this->payableStatusFor($newPaidAmount, (float) $payable->amount),
+            ])->save();
+
+            return $payable;
+        });
+    }
+
+    private function payableStatusFor(float $paidAmount, float $amount): string
+    {
+        if ($paidAmount <= 0) {
+            return 'open';
+        }
+
+        if ($paidAmount < $amount) {
+            return 'partial';
+        }
+
+        return 'paid';
     }
 
     private function invoiceStatusFor(float $paidAmount, float $total): string

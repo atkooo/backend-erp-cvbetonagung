@@ -104,6 +104,28 @@ class RbacSeeder extends Seeder
                 'reports' => 'read',
             ],
         ],
+        'billing' => [
+            'name' => 'Billing AR',
+            'description' => 'Billing access for customer receivables, invoices, and AR follow-up.',
+            'modules' => [
+                'customers' => 'read',
+                'products' => 'read',
+                'sales' => 'read',
+                'finance' => 'edit',
+                'reports' => 'read',
+            ],
+        ],
+        'cashier' => [
+            'name' => 'Cashier',
+            'description' => 'Cashier access for receipts, supplier payments, and cash/bank transaction entry.',
+            'modules' => [
+                'customers' => 'read',
+                'suppliers' => 'read',
+                'purchasing' => 'read',
+                'finance' => 'edit',
+                'reports' => 'read',
+            ],
+        ],
         'project' => [
             'name' => 'Project',
             'description' => 'Project access for project tracking, timelines, documents, and budgets.',
@@ -164,6 +186,16 @@ class RbacSeeder extends Seeder
             'role' => 'purchasing',
             'name' => 'Purchasing User',
             'email' => 'purchasing@example.com',
+        ],
+        [
+            'role' => 'billing',
+            'name' => 'Billing User',
+            'email' => 'billing@example.com',
+        ],
+        [
+            'role' => 'cashier',
+            'name' => 'Cashier User',
+            'email' => 'cashier@example.com',
         ],
         [
             'role' => 'project',

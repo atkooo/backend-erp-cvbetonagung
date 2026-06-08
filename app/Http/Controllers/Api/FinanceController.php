@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Api\FinanceRequest;
+use App\Http\Requests\Api\PaySupplierPayableRequest;
 use App\Http\Requests\Api\VerifyPaymentRequest;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -231,6 +232,15 @@ class FinanceController extends ApiResourceController
 
         return response()->json([
             'data' => $payment->fresh(['invoice', 'verifiedBy']),
+        ]);
+    }
+
+    public function paySupplierPayable(PaySupplierPayableRequest $request, string $id): JsonResponse
+    {
+        $payable = $this->financeWorkflow->paySupplierPayable($id, $request->validated());
+
+        return response()->json([
+            'data' => $payable->fresh(['supplier', 'purchaseOrder']),
         ]);
     }
 

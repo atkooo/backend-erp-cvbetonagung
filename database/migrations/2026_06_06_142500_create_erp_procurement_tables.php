@@ -63,8 +63,9 @@ return new class extends Migration
         Schema::create('goods_receipt_notes', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('grn_number')->unique();
-            $table->foreignUuid('purchase_order_id')->constrained('purchase_orders')->restrictOnDelete();
+            $table->foreignUuid('purchase_order_id')->nullable()->constrained('purchase_orders')->restrictOnDelete();
             $table->foreignUuid('warehouse_id')->nullable()->constrained('warehouses')->nullOnDelete();
+            $table->foreignUuid('to_location_id')->nullable()->constrained('storage_locations')->nullOnDelete();
             $table->foreignUuid('received_by')->nullable()->constrained('users')->nullOnDelete();
             $table->date('receipt_date');
             $table->string('delivery_order_number')->nullable(); // Nomor Surat Jalan dari Supplier

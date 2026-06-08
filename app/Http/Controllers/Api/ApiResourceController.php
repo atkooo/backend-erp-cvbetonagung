@@ -22,8 +22,7 @@ abstract class ApiResourceController extends Controller
     {
         $config = $this->resourceConfig($resource);
         $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
-        $sort = $this->sortColumn($request, $config);
-        $direction = $request->string('direction')->lower()->value() === 'desc' ? 'desc' : 'asc';
+        [$sort, $direction] = $this->sortClause($request, $config);
 
         $query = $this->resourceQuery($config);
         $this->applyFilters($query, $request, $config);
@@ -165,5 +164,26 @@ abstract class ApiResourceController extends Controller
         return in_array($sort, $config['sortable'], true)
             ? $sort
             : Arr::first($config['sortable']);
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     * @return array{0: string, 1: string}
+     */
+    protected function sortClause(Request $request, array $config): array
+    {
+        $requestedSort = $request->string('sort', Arr::first($config['sortable']))->value();
+        $direction = $request->string('direction')->lower()->value() === 'desc' ? 'desc' : 'asc';
+
+        if (str_starts_with($requestedSort, '-')) {
+            $requestedSort = substr($requestedSort, 1);
+            $direction = 'desc';
+        }
+
+        $sort = in_array($requestedSort, $config['sortable'], true)
+            ? $requestedSort
+            : Arr::first($config['sortable']);
+
+        return [$sort, $direction];
     }
 }

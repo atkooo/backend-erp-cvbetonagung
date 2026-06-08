@@ -23,6 +23,10 @@ class PurchaseOrderItem extends Model
     public const CREATED_AT = null;
     public const UPDATED_AT = null;
 
+    protected $appends = [
+        'received_quantity',
+    ];
+
     public function purchaseOrder(): BelongsTo
     {
         return $this->belongsTo(PurchaseOrder::class);
@@ -41,5 +45,10 @@ class PurchaseOrderItem extends Model
             'received_qty' => 'decimal:2',
             'subtotal' => 'decimal:2',
         ];
+    }
+
+    public function getReceivedQuantityAttribute()
+    {
+        return $this->received_qty;
     }
 }

@@ -138,6 +138,8 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
             'rfq-items',
             'purchase-orders',
             'purchase-order-items',
+            'goods-receipts',
+            'goods-receipt-items',
             'goods-receipt-notes',
             'goods-receipt-note-items',
             'supplier-payables',
@@ -171,6 +173,8 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
 
     Route::post('finance/payments/{id}/verify', [FinanceController::class, 'verifyPayment'])
         ->whereUuid('id');
+    Route::post('finance/supplier-payables/{id}/pay', [FinanceController::class, 'paySupplierPayable'])
+        ->whereUuid('id');
 
     Route::prefix('finance/{resource}')
         ->whereIn('resource', [
@@ -178,6 +182,8 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
             'invoice-items',
             'payments',
             'project-termins',
+            'accounts',
+            'cash-transactions',
         ])
         ->controller(FinanceController::class)
         ->group(function () {

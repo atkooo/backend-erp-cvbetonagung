@@ -12,6 +12,11 @@ class GoodsReceiptNoteItem extends Model
 
     public $timestamps = false;
 
+    protected $appends = [
+        'received_quantity',
+        'rejected_quantity',
+    ];
+
     protected $fillable = [
         'goods_receipt_note_id',
         'purchase_order_item_id',
@@ -34,5 +39,23 @@ class GoodsReceiptNoteItem extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function getReceivedQuantityAttribute()
+    {
+        return $this->received_qty;
+    }
+
+    public function getRejectedQuantityAttribute()
+    {
+        return $this->rejected_qty;
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'received_qty' => 'decimal:2',
+            'rejected_qty' => 'decimal:2',
+        ];
     }
 }

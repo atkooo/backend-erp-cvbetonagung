@@ -1,16 +1,23 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Dashboard\DashboardSummaryController;
 use App\Http\Controllers\Api\FinanceController;
+use App\Http\Controllers\Api\Finance\FinanceQueryController;
 use App\Http\Controllers\Api\HrdController;
 use App\Http\Controllers\Api\PayrollController;
 use App\Http\Controllers\Api\IdentityController;
 use App\Http\Controllers\Api\InventoryController;
+use App\Http\Controllers\Api\Inventory\InventoryQueryController;
+use App\Http\Controllers\Api\Master\MasterQueryController;
 use App\Http\Controllers\Api\MasterDataController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProductionController;
 use App\Http\Controllers\Api\PurchasingController;
+use App\Http\Controllers\Api\Purchasing\PurchasingQueryController;
+use App\Http\Controllers\Api\Reports\ReportsController;
 use App\Http\Controllers\Api\SalesController;
+use App\Http\Controllers\Api\Sales\SalesQueryController;
 use App\Http\Controllers\Api\SupportController;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +35,38 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
         Route::get('me', 'me');
         Route::post('logout', 'logout');
     });
+
+    Route::get('dashboard/summary', DashboardSummaryController::class);
+
+    Route::prefix('master')->controller(MasterQueryController::class)->group(function () {
+        Route::get('customers', 'customers');
+        Route::get('suppliers', 'suppliers');
+        Route::get('products', 'products');
+    });
+
+    Route::prefix('sales')->controller(SalesQueryController::class)->group(function () {
+        Route::get('orders', 'orders');
+        Route::get('invoices', 'invoices');
+    });
+
+    Route::prefix('purchasing')->controller(PurchasingQueryController::class)->group(function () {
+        Route::get('receivings', 'receivings');
+    });
+
+    Route::prefix('inventory')->controller(InventoryQueryController::class)->group(function () {
+        Route::get('stocks', 'stocks');
+        Route::get('stock-ins', 'stockIns');
+        Route::get('stock-outs', 'stockOuts');
+    });
+
+    Route::prefix('finance')->controller(FinanceQueryController::class)->group(function () {
+        Route::get('billing', 'billing');
+        Route::get('cashier', 'cashier');
+        Route::get('account-payable', 'accountPayable');
+        Route::get('cash-bank', 'cashBank');
+    });
+
+    Route::get('reports', ReportsController::class);
 
     Route::prefix('identity')->controller(IdentityController::class)->group(function () {
         Route::get('role-permissions/{roleId}/{permissionId}', 'showRolePermission')

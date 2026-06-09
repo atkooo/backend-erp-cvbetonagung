@@ -112,8 +112,19 @@ class RequirePermission
 
         $segments = $request->segments();
         $apiModule = $segments[1] ?? null;
+        $apiResource = $segments[2] ?? null;
+
+        if ($apiModule === 'master') {
+            return match ($apiResource) {
+                'customers' => 'customers',
+                'suppliers' => 'suppliers',
+                'products' => 'products',
+                default => null,
+            };
+        }
 
         return match ($apiModule) {
+            'dashboard' => 'reports',
             'identity' => 'roles',
             'inventory' => str_contains($request->path(), 'stock-opname-items') ? 'inventory' : 'inventory',
             'sales' => 'sales',
@@ -121,6 +132,7 @@ class RequirePermission
             'projects' => 'projects',
             'finance' => 'finance',
             'production' => 'production',
+            'reports' => 'reports',
             'support' => 'reports',
             default => null,
         };

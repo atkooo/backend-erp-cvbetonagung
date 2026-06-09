@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'category_id',
     'unit_id',
     'sku',
+    'type',
     'name',
     'cost_price',
     'selling_price',

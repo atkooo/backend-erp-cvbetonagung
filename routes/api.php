@@ -143,6 +143,8 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
 
     Route::post('sales/quotations/{id}/approve', [SalesController::class, 'approveQuotation'])
         ->whereUuid('id');
+    Route::post('sales/sales-orders/{id}/approve', [SalesController::class, 'approveSalesOrder'])
+        ->whereUuid('id');
     Route::post('sales/sales-orders/{id}/deliver', [SalesController::class, 'createDeliveryOrder'])
         ->whereUuid('id');
     Route::post('sales/delivery-orders/{id}/ship', [SalesController::class, 'shipDeliveryOrder'])

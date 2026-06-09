@@ -248,6 +248,14 @@ class SalesController extends ApiResourceController
         return response()->json(['data' => $salesOrder->fresh($config['relations'] ?? [])], 201);
     }
 
+    public function approveSalesOrder(Request $request, string $id, SalesWorkflowService $service): JsonResponse
+    {
+        $salesOrder = $service->approveSalesOrder($id, $request->all());
+        $config = $this->resourceConfig('sales-orders');
+
+        return response()->json(['data' => $salesOrder->fresh($config['relations'] ?? [])], 200);
+    }
+
     public function createDeliveryOrder(CreateDeliveryOrderRequest $request, string $id, SalesWorkflowService $service): JsonResponse
     {
         $deliveryOrder = $service->createDeliveryOrder($id, $request->validated());

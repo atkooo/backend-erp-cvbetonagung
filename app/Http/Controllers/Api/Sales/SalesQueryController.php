@@ -24,7 +24,7 @@ class SalesQueryController extends Controller
     {
         return response()->json([
             'data' => SalesOrder::query()
-                ->with(['customer', 'quotation', 'items.product'])
+                ->with(['customer', 'quotation', 'items.product', 'invoices'])
                 ->orderByDesc('order_date')
                 ->get(),
         ]);

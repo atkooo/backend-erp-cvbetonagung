@@ -8,6 +8,8 @@ use App\Models\ProductStock;
 use App\Models\Quotation;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 
@@ -58,6 +60,50 @@ class SalesWorkflowService
     /**
      * @param array<string, mixed> $attributes
      */
+    public function approveSalesOrder(string $id, array $attributes): SalesOrder
+    {
+        return DB::transaction(function () use ($id, $attributes): SalesOrder {
+            $salesOrder = SalesOrder::query()
+                ->with('items')
+                ->lockForUpdate()
+                ->whereKey($id)
+                ->firstOrFail();
+
+            abort_if($salesOrder->items->isEmpty(), 422, 'Sales order must have at least one item before approval.');
+            abort_if($salesOrder->status !== 'draft' && $salesOrder->status !== 'processing', 422, 'Only draft or processing sales orders can be approved.');
+
+            $salesOrder->forceFill(['status' => 'approved'])->save();
+
+            // Create Invoice
+            $invoice = Invoice::query()->create([
+                'sales_order_id' => $salesOrder->id,
+                'customer_id' => $salesOrder->customer_id,
+                'invoice_date' => $attributes['invoice_date'] ?? date('Y-m-d'),
+                'due_date' => $attributes['due_date'] ?? date('Y-m-d', strtotime('+30 days')),
+                'subtotal' => $salesOrder->total, // Assuming total from SO is subtotal for invoice or needs calculation
+                'tax_amount' => 0,
+                'total' => $salesOrder->total,
+                'status' => 'unpaid',
+            ]);
+
+            foreach ($salesOrder->items as $item) {
+                InvoiceItem::query()->create([
+                    'invoice_id' => $invoice->id,
+                    'product_id' => $item->product_id,
+                    'description' => $item->description,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'subtotal' => $item->subtotal,
+                ]);
+            }
+
+            return $salesOrder;
+        });
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
     public function createDeliveryOrder(string $id, array $attributes): DeliveryOrder
     {
         return DB::transaction(function () use ($id, $attributes): DeliveryOrder {
@@ -68,8 +114,13 @@ class SalesWorkflowService
                 ->firstOrFail();
 
             abort_if($salesOrder->items->isEmpty(), 422, 'Sales order must have at least one item before delivery.');
+            abort_if($salesOrder->status !== 'approved', 422, 'Only approved sales orders can be delivered.');
             abort_if($salesOrder->deliveryOrders()->exists(), 409, 'Sales order already has a delivery order.');
-            abort_if($salesOrder->status === 'cancelled', 422, 'Cancelled sales order cannot be delivered.');
+
+            // Validate that the related invoice is partially or fully paid
+            $invoice = $salesOrder->invoices()->first();
+            abort_if(!$invoice, 422, 'Sales order must have an invoice before delivery.');
+            abort_if((float) $invoice->paid_amount <= 0, 422, 'Invoice must be partially or fully paid before delivery.');
 
             if ($salesOrder->status === 'draft') {
                 $salesOrder->forceFill(['status' => 'processing'])->save();

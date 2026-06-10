@@ -24,6 +24,8 @@ class StockOpnameItem extends Model
     public const CREATED_AT = null;
     public const UPDATED_AT = null;
 
+    protected $appends = ['is_adjusted'];
+
     public function session(): BelongsTo
     {
         return $this->belongsTo(StockOpnameSession::class, 'session_id');
@@ -42,6 +44,18 @@ class StockOpnameItem extends Model
     public function approvalRequest(): BelongsTo
     {
         return $this->belongsTo(ApprovalRequest::class);
+    }
+
+    public function getIsAdjustedAttribute(): bool
+    {
+        if ((float) $this->difference_qty === 0.0) {
+            return true;
+        }
+
+        return StockMovement::query()
+            ->where('reference_type', 'stock_opname_item')
+            ->where('reference_id', $this->id)
+            ->exists();
     }
 
     protected function casts(): array

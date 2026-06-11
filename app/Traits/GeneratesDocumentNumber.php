@@ -16,7 +16,7 @@ trait GeneratesDocumentNumber
                 ? $model->documentNumberField() 
                 : 'document_number';
 
-            if (empty($model->{$field})) {
+            if (empty($model->{$field}) || $model->{$field} === 'AUTO GENERATED') {
                 $model->{$field} = static::generateDocumentNumber($model);
             }
         });

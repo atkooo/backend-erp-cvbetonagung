@@ -235,6 +235,9 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
             Route::delete('/{id}', 'destroy')->whereUuid('id');
         });
 
+    Route::post('production/work-orders/{id}/receive', [ProductionController::class, 'receive'])
+        ->whereUuid('id');
+
     Route::prefix('production/{resource}')
         ->whereIn('resource', [
             'work-orders',

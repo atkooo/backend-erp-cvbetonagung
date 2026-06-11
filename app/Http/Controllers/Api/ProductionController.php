@@ -8,6 +8,7 @@ use App\Models\BomItem;
 use App\Models\ProductionWorkLog;
 use App\Models\ProductionWorkOrder;
 use App\Models\ProductionWorkOrderItem;
+use App\Services\ProductionWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,12 @@ use Illuminate\Http\Response;
 
 class ProductionController extends ApiResourceController
 {
+    private ProductionWorkflowService $workflowService;
+
+    public function __construct(ProductionWorkflowService $workflowService)
+    {
+        $this->workflowService = $workflowService;
+    }
     /**
      * @var array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
      */
@@ -98,5 +105,27 @@ class ProductionController extends ApiResourceController
             'stage',
             'status',
         ];
+    }
+
+    public function receive(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'quantity' => ['required', 'numeric', 'min:0.01'],
+            'target_location_id' => ['required', 'uuid'],
+            'source_location_id' => ['nullable', 'uuid'],
+            'handled_by' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string'],
+            'movement_at' => ['nullable', 'date'],
+        ]);
+
+        if (!isset($validated['movement_at'])) {
+            $validated['movement_at'] = now()->toDateTimeString();
+        }
+
+        $workOrder = $this->workflowService->receiveWorkOrder($id, $validated);
+
+        return response()->json([
+            'data' => $workOrder,
+        ]);
     }
 }

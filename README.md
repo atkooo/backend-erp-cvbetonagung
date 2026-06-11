@@ -1,58 +1,190 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Backend ERP CV. Beton Agung
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Backend API untuk sistem ERP CV. Beton Agung. Project ini memakai Laravel 13, PHP 8.3, Laravel Sanctum, PostgreSQL, dan menyediakan JSON API untuk frontend React di `../frontend`.
 
-## About Laravel
+## Fitur Utama
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- Autentikasi API memakai Bearer token Laravel Sanctum.
+- RBAC role dan permission untuk proteksi endpoint.
+- Master data customer, supplier, produk, kategori, satuan, gudang, lokasi stok, dan company settings.
+- Inventory, stock movement, product stock, stock opname, dan approval request.
+- Sales: quotation, sales order, delivery order, dan workflow approval/shipping.
+- Purchasing: purchase request, RFQ, purchase order, goods receipt, payable, dan return.
+- Finance: invoice, payment, account, cash transaction, billing, cashier, payable, dan cash bank.
+- Project, production, HRD, payroll, audit log, reminder, document export, dan dashboard summary.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Prasyarat
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- PHP 8.3 atau lebih baru.
+- Composer.
+- PostgreSQL.
+- Node.js dan npm, hanya diperlukan jika menjalankan asset/Vite Laravel.
 
-## Learning Laravel
+## Setup Lokal
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+1. Install dependency PHP:
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+   ```bash
+   composer install
+   ```
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+2. Buat file environment:
 
-## Agentic Development
+   ```bash
+   copy .env.example .env
+   ```
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+3. Generate application key:
 
-```bash
-composer require laravel/boost --dev
+   ```bash
+   php artisan key:generate
+   ```
 
-php artisan boost:install
+4. Buat database PostgreSQL, lalu sesuaikan `.env`:
+
+   ```env
+   DB_CONNECTION=pgsql
+   DB_HOST=127.0.0.1
+   DB_PORT=5432
+   DB_DATABASE=cv_beton_agung_erp
+   DB_USERNAME=postgres
+   DB_PASSWORD=
+   ```
+
+5. Jalankan migration dan seeder:
+
+   ```bash
+   php artisan migrate --seed
+   ```
+
+6. Jalankan API server:
+
+   ```bash
+   php artisan serve
+   ```
+
+7. Cek health endpoint:
+
+   ```text
+   http://localhost:8000/api/health
+   ```
+
+## Akun Awal
+
+Seeder membuat super admin berikut:
+
+```text
+Email: admin@betonagung.co.id
+Password: password
+Role: admin
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Seeder juga membuat user untuk data employee dengan password default `password`.
 
-## Contributing
+## Environment Penting
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+| Nama | Keterangan | Contoh |
+| --- | --- | --- |
+| `APP_NAME` | Nama service backend. | `CV Beton Agung ERP Backend` |
+| `APP_URL` | URL aplikasi backend. | `http://localhost` |
+| `DB_CONNECTION` | Driver database. | `pgsql` |
+| `DB_DATABASE` | Nama database ERP. | `cv_beton_agung_erp` |
+| `SESSION_DRIVER` | Driver session Laravel. | `database` |
+| `QUEUE_CONNECTION` | Driver queue. | `database` |
+| `CACHE_STORE` | Driver cache. | `database` |
+| `ALLOWED_ORIGINS` | Origin frontend yang boleh akses API. | `http://localhost:3000,http://localhost:5173` |
 
-## Code of Conduct
+Untuk frontend lokal, pastikan `.env` backend memuat origin berikut:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```env
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173
+```
 
-## Security Vulnerabilities
+## Script Composer
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+| Command | Fungsi |
+| --- | --- |
+| `composer run setup` | Install dependency, buat `.env`, generate key, migrate, install npm, dan build asset. |
+| `composer run dev` | Menjalankan server Laravel, queue listener, log pail, dan Vite Laravel secara bersamaan. |
+| `composer run test` | Clear config lalu menjalankan test Laravel. |
 
-## License
+Untuk API-only development dengan frontend terpisah, biasanya cukup jalankan:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+php artisan serve
+```
+
+Jika fitur queue dipakai, jalankan worker terpisah:
+
+```bash
+php artisan queue:listen --tries=1 --timeout=0
+```
+
+## Endpoint Dasar
+
+Endpoint publik:
+
+| Method | Endpoint | Fungsi |
+| --- | --- | --- |
+| `GET` | `/api/health` | Health check service. |
+| `POST` | `/api/auth/login` | Login dan membuat Sanctum token. |
+
+Endpoint setelah login memakai header `Authorization: Bearer <token>`:
+
+| Method | Endpoint | Fungsi |
+| --- | --- | --- |
+| `GET` | `/api/auth/me` | Data user aktif. |
+| `POST` | `/api/auth/logout` | Logout dan revoke token aktif. |
+| `GET` | `/api/dashboard/summary` | Ringkasan dashboard. |
+| `GET` | `/api/reports` | Data laporan. |
+
+Prefix modul utama:
+
+```text
+/api/identity/*
+/api/master/*
+/api/master-data/*
+/api/inventory/*
+/api/sales/*
+/api/purchasing/*
+/api/projects/*
+/api/finance/*
+/api/production/*
+/api/support/*
+/api/hrd/*
+```
+
+## Integrasi Frontend
+
+Frontend berada di `../frontend` dan default mengakses backend melalui:
+
+```env
+VITE_API_BASE_URL="http://localhost:8000/api"
+```
+
+Alur lokal yang disarankan:
+
+1. Jalankan PostgreSQL.
+2. Jalankan migration dan seeder backend.
+3. Jalankan backend dengan `php artisan serve`.
+4. Pastikan `/api/health` mengembalikan `status: ok`.
+5. Jalankan frontend dari `../frontend` dengan `npm run dev`.
+6. Login memakai akun seeder.
+
+## Struktur Penting
+
+```text
+app/Http/Controllers/Api/  Controller JSON API per modul
+database/migrations/       Skema database ERP
+database/seeders/          Seed role, user, customer, supplier, produk, material
+routes/api.php             Definisi endpoint API utama
+app/Models/                 Model Eloquent domain ERP
+```
+
+## Troubleshooting
+
+- `401 Unauthorized`: token tidak ada, token invalid, atau user belum login.
+- `403 Forbidden`: user tidak punya permission untuk route tersebut.
+- Error CORS dari browser: tambahkan origin frontend ke `ALLOWED_ORIGINS` lalu restart backend.
+- Error koneksi database: pastikan database PostgreSQL sudah dibuat dan kredensial `.env` benar.
+- Setelah mengubah `.env`, jalankan `php artisan config:clear` jika konfigurasi masih terbaca lama.

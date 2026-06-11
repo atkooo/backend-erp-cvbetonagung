@@ -30,12 +30,19 @@ Route::get('/health', function () {
 
 Route::post('auth/login', [AuthController::class, 'login']);
 
-Route::middleware(['auth:sanctum', 'permission'])->group(function () {
+Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('auth')->controller(AuthController::class)->group(function () {
         Route::get('me', 'me');
         Route::post('logout', 'logout');
+        Route::put('profile', 'updateProfile');
     });
 
+    Route::prefix('system')->controller(\App\Http\Controllers\Api\SystemController::class)->group(function () {
+        Route::get('backup', 'exportBackup');
+    });
+});
+
+Route::middleware(['auth:sanctum', 'permission'])->group(function () {
     Route::get('dashboard/summary', DashboardSummaryController::class);
 
     Route::prefix('master')->controller(MasterQueryController::class)->group(function () {

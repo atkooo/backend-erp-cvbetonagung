@@ -18,11 +18,23 @@ class AuthController extends Controller
         ]);
 
         if ($request->filled('otp')) {
-            if ($request->otp !== 'SA-2026') {
-                return response()->json(['message' => 'Kode OTP Super Admin tidak valid.'], 422);
+            $secret = env('TOTP_SUPER_ADMIN_SECRET');
+            if (!$secret) {
+                return response()->json(['message' => 'Sistem belum dikonfigurasi untuk OTP (Secret tidak ditemukan).'], 500);
+            }
+
+            try {
+                $google2fa = new \PragmaRX\Google2FA\Google2FA();
+                $valid = $google2fa->verifyKey($secret, $request->otp);
+
+                if (!$valid) {
+                    return response()->json(['message' => 'Kode OTP Super Admin tidak valid.'], 422);
+                }
+            } catch (\Exception $e) {
+                return response()->json(['message' => 'Terjadi kesalahan saat memverifikasi OTP.'], 500);
             }
             // Cari user pertama yang memiliki role admin
-            $user = User::with(['role', 'employee'])->whereHas('role', function($q) {
+            $user = User::with(['role.permissions', 'employee'])->whereHas('role', function($q) {
                 $q->where('code', 'admin');
             })->first();
 
@@ -30,7 +42,7 @@ class AuthController extends Controller
                 return response()->json(['message' => 'Akun Super Admin tidak ditemukan di sistem.'], 422);
             }
         } else {
-            $user = User::with(['role', 'employee'])->where('email', $request->email)->first();
+            $user = User::with(['role.permissions', 'employee'])->where('email', $request->email)->first();
 
             if (!$user || !Hash::check($request->password, $user->password) || $user->status !== 'active') {
                 return response()->json([
@@ -57,10 +69,12 @@ class AuthController extends Controller
                         'id' => $user->role->id,
                         'code' => $user->role->code,
                         'name' => $user->role->name,
+                        'permissions' => $user->role->permissions,
                     ] : [
                         'id' => '0',
                         'code' => 'employee',
-                        'name' => 'Karyawan'
+                        'name' => 'Karyawan',
+                        'permissions' => []
                     ],
                     'employee_id' => $user->employee->id ?? null
                 ]
@@ -70,7 +84,7 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        $user = $request->user()->load(['role', 'employee']);
+        $user = $request->user()->load(['role.permissions', 'employee']);
         
         return response()->json([
             'data' => [
@@ -81,10 +95,12 @@ class AuthController extends Controller
                     'id' => $user->role->id,
                     'code' => $user->role->code,
                     'name' => $user->role->name,
+                    'permissions' => $user->role->permissions,
                 ] : [
                     'id' => '0',
                     'code' => 'employee',
-                    'name' => 'Karyawan'
+                    'name' => 'Karyawan',
+                    'permissions' => []
                 ],
                 'employee_id' => $user->employee->id ?? null
             ]
@@ -95,5 +111,38 @@ class AuthController extends Controller
     {
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Logged out successfully.']);
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'password' => 'nullable|string|min:8|confirmed',
+            'current_password' => 'required_with:password',
+        ]);
+
+        if ($request->filled('password')) {
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json([
+                    'message' => 'Kata sandi saat ini tidak cocok.'
+                ], 422);
+            }
+            
+            $user->password = Hash::make($request->password);
+        }
+
+        $user->name = $request->name;
+        $user->save();
+
+        return response()->json([
+            'message' => 'Profil berhasil diperbarui.',
+            'data' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ]
+        ]);
     }
 }

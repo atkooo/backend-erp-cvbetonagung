@@ -47,8 +47,9 @@ class MasterDataRequest extends FormRequest
                 'status' => ['sometimes', Rule::in(['active', 'inactive'])],
             ],
             'units' => [
-                'code' => [...$nullable, 'string', 'max:255', Rule::unique('units', 'code')->ignore($id)],
+                'code' => [...$required, 'string', 'max:255', Rule::unique('units', 'code')->ignore($id)],
                 'name' => [...$required, 'string', 'max:255'],
+                'type' => [...$nullable, 'string', Rule::in(['raw_material', 'finished_good', 'both'])],
             ],
             'warehouses' => [
                 'code' => [...$nullable, 'string', 'max:255', Rule::unique('warehouses', 'code')->ignore($id)],
@@ -76,8 +77,8 @@ class MasterDataRequest extends FormRequest
                 'sku' => [...$nullable, 'string', 'max:255', Rule::unique('products', 'sku')->ignore($id)],
                 'type' => [...$nullable, 'string', Rule::in(['raw_material', 'finished_good', 'service'])],
                 'name' => [...$required, 'string', 'max:255'],
-                'length' => [...$nullable, 'string', 'max:255'],
-                'motif' => [...$nullable, 'string', 'max:255'],
+                'is_customizable' => ['sometimes', 'boolean'],
+                'pricing_method' => ['sometimes', Rule::in(['per_item', 'per_dimension'])],
                 'cost_price' => ['sometimes', 'numeric', 'min:0'],
                 'selling_price' => ['sometimes', 'numeric', 'min:0'],
                 'min_stock' => ['sometimes', 'numeric', 'min:0'],

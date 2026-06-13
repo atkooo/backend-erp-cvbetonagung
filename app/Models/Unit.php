@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['code', 'name'])]
+#[Fillable(['code', 'name', 'type'])]
 class Unit extends Model
 {
     use HasUuids;

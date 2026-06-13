@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Api\ApproveQuotationRequest;
+use App\Http\Requests\Api\ApproveSalesOrderRequest;
 use App\Http\Requests\Api\CreateDeliveryOrderRequest;
 use App\Http\Requests\Api\SalesRequest;
 use App\Http\Requests\Api\ShipDeliveryOrderRequest;
@@ -149,7 +150,7 @@ class SalesController extends ApiResourceController
         return response()->json(['data' => $salesOrder->fresh($config['relations'] ?? [])], 201);
     }
 
-    public function approveSalesOrder(Request $request, string $id, SalesWorkflowService $service): JsonResponse
+    public function approveSalesOrder(ApproveSalesOrderRequest $request, string $id, SalesWorkflowService $service): JsonResponse
     {
         $salesOrder = $service->approveSalesOrder($id, $request->validated());
         $config = $this->resourceConfig('sales-orders');

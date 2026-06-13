@@ -69,13 +69,24 @@ class SalesController extends ApiResourceController
         return $this->indexResource($request, $resource);
     }
 
-    public function store(SalesRequest $request, string $resource): JsonResponse
+    /**
+     * Store — semua business logic didelegasikan ke SalesWorkflowService.
+     */
+    public function store(SalesRequest $request, string $resource, SalesWorkflowService $service): JsonResponse
     {
-        if ($resource === 'quotations' || $resource === 'sales-orders') {
-            return $this->storeWithItems($resource, $request->validated());
+        $data = $request->validated();
+
+        if ($resource === 'quotations') {
+            $model = $service->createQuotation($data);
+            return response()->json(['data' => $model], 201);
         }
 
-        return $this->storeResource($resource, $request->validated());
+        if ($resource === 'sales-orders') {
+            $model = $service->createSalesOrder($data);
+            return response()->json(['data' => $model], 201);
+        }
+
+        return $this->storeResource($resource, $data);
     }
 
     public function show(string $resource, string $id): JsonResponse
@@ -83,21 +94,31 @@ class SalesController extends ApiResourceController
         return $this->showResource($resource, $id);
     }
 
-    public function update(SalesRequest $request, string $resource, string $id): JsonResponse
+    /**
+     * Update — semua business logic didelegasikan ke SalesWorkflowService.
+     */
+    public function update(SalesRequest $request, string $resource, string $id, SalesWorkflowService $service): JsonResponse
     {
-        if ($resource === 'quotations' || $resource === 'sales-orders') {
-            return $this->updateWithItems($resource, $id, $request->validated());
+        $data = $request->validated();
+
+        if ($resource === 'quotations') {
+            $model = $service->updateQuotation($id, $data);
+            return response()->json(['data' => $model]);
+        }
+
+        if ($resource === 'sales-orders') {
+            $model = $service->updateSalesOrder($id, $data);
+            return response()->json(['data' => $model]);
         }
 
         if ($resource === 'delivery-orders') {
-            $attributes = $request->validated();
             $config = $this->resourceConfig($resource);
             $model = $this->findResourceModel($config, $id);
 
-            DB::transaction(function () use ($model, $attributes) {
-                $model->update($attributes);
+            DB::transaction(function () use ($model, $data) {
+                $model->update($data);
 
-                if (($attributes['status'] ?? '') === 'received' && $model->sales_order_id) {
+                if (($data['status'] ?? '') === 'received' && $model->sales_order_id) {
                     $salesOrder = SalesOrder::query()->find($model->sales_order_id);
                     if ($salesOrder) {
                         $salesOrder->forceFill(['status' => 'completed'])->save();
@@ -108,130 +129,7 @@ class SalesController extends ApiResourceController
             return response()->json(['data' => $model->fresh($config['relations'] ?? [])]);
         }
 
-        return $this->updateResource($resource, $id, $request->validated());
-    }
-
-    protected function storeWithItems(string $resource, array $attributes): JsonResponse
-    {
-        $config = $this->resourceConfig($resource);
-        /** @var class-string<\Illuminate\Database\Eloquent\Model> $modelClass */
-        $modelClass = $config['model'];
-
-        $hasItems = array_key_exists('items', $attributes);
-        $items = $attributes['items'] ?? [];
-        unset($attributes['items']);
-
-        $model = DB::transaction(function () use ($modelClass, $attributes, $items, $resource, $hasItems) {
-            /** @var \Illuminate\Database\Eloquent\Model $model */
-            $model = $modelClass::query()->create($attributes);
-
-            if ($resource === 'sales-orders' && !empty($attributes['quotation_id'])) {
-                $quotation = Quotation::query()->with('items')->find($attributes['quotation_id']);
-                if ($quotation) {
-                    $quotation->forceFill(['status' => 'approved'])->save();
-
-                    if (!$hasItems || empty($items)) {
-                        $subtotal = 0;
-                        foreach ($quotation->items as $qItem) {
-                            $model->items()->create([
-                                'product_id' => $qItem->product_id,
-                                'description' => $qItem->description,
-                                'quantity' => $qItem->quantity,
-                                'unit_price' => $qItem->unit_price,
-                                'subtotal' => $qItem->subtotal,
-                            ]);
-                            $subtotal += $qItem->subtotal;
-                        }
-                        $model->forceFill([
-                            'total' => $subtotal,
-                        ])->save();
-
-                        return $model;
-                    }
-                }
-            }
-
-            if ($hasItems) {
-                $subtotal = 0;
-                foreach ($items as $itemData) {
-                    $itemSubtotal = ($itemData['quantity'] ?? 0) * ($itemData['unit_price'] ?? 0);
-                    $subtotal += $itemSubtotal;
-
-                    $model->items()->create([
-                        'product_id' => $itemData['product_id'],
-                        'description' => $itemData['description'] ?? null,
-                        'quantity' => $itemData['quantity'],
-                        'unit_price' => $itemData['unit_price'],
-                        'subtotal' => $itemSubtotal,
-                    ]);
-                }
-
-                if ($resource === 'quotations') {
-                    $taxAmount = $attributes['tax_amount'] ?? 0;
-                    $model->forceFill([
-                        'subtotal' => $subtotal,
-                        'tax_amount' => $taxAmount,
-                        'total' => $subtotal + $taxAmount,
-                    ])->save();
-                } else {
-                    $model->forceFill([
-                        'total' => $subtotal,
-                    ])->save();
-                }
-            }
-
-            return $model;
-        });
-
-        return response()->json(['data' => $model->fresh($config['relations'] ?? [])], 201);
-    }
-
-    protected function updateWithItems(string $resource, string $id, array $attributes): JsonResponse
-    {
-        $config = $this->resourceConfig($resource);
-        $model = $this->findResourceModel($config, $id);
-
-        $hasItems = array_key_exists('items', $attributes);
-        $items = $attributes['items'] ?? null;
-        unset($attributes['items']);
-
-        DB::transaction(function () use ($model, $attributes, $items, $resource, $hasItems) {
-            $model->fill($attributes);
-            $model->save();
-
-            if ($hasItems && $items !== null) {
-                $model->items()->delete();
-
-                $subtotal = 0;
-                foreach ($items as $itemData) {
-                    $itemSubtotal = ($itemData['quantity'] ?? 0) * ($itemData['unit_price'] ?? 0);
-                    $subtotal += $itemSubtotal;
-
-                    $model->items()->create([
-                        'product_id' => $itemData['product_id'],
-                        'description' => $itemData['description'] ?? null,
-                        'quantity' => $itemData['quantity'],
-                        'unit_price' => $itemData['unit_price'],
-                        'subtotal' => $itemSubtotal,
-                    ]);
-                }
-
-                if ($resource === 'quotations') {
-                    $taxAmount = $attributes['tax_amount'] ?? $model->tax_amount ?? 0;
-                    $model->forceFill([
-                        'subtotal' => $subtotal,
-                        'tax_amount' => $taxAmount,
-                        'total' => $subtotal + $taxAmount,
-                    ])->save();
-                } else {
-                    $model->forceFill([
-                        'total' => $subtotal,
-                    ])->save();
-                }
-            }
-        });
-
-        return response()->json(['data' => $model->fresh($config['relations'] ?? [])]);
+        return $this->updateResource($resource, $id, $data);
     }
 
     public function destroy(string $resource, string $id): JsonResponse|Response
@@ -239,7 +137,10 @@ class SalesController extends ApiResourceController
         return $this->destroyResource($resource, $id);
     }
 
-    // Workflow actions (using SalesWorkflowService)
+    // -----------------------------------------------------------
+    // Workflow actions (semua via SalesWorkflowService)
+    // -----------------------------------------------------------
+
     public function approveQuotation(ApproveQuotationRequest $request, string $id, SalesWorkflowService $service): JsonResponse
     {
         $salesOrder = $service->approveQuotation($id, $request->validated());
@@ -250,7 +151,7 @@ class SalesController extends ApiResourceController
 
     public function approveSalesOrder(Request $request, string $id, SalesWorkflowService $service): JsonResponse
     {
-        $salesOrder = $service->approveSalesOrder($id, $request->all());
+        $salesOrder = $service->approveSalesOrder($id, $request->validated());
         $config = $this->resourceConfig('sales-orders');
 
         return response()->json(['data' => $salesOrder->fresh($config['relations'] ?? [])], 200);

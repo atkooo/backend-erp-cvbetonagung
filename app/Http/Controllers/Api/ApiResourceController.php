@@ -156,18 +156,6 @@ abstract class ApiResourceController extends Controller
 
     /**
      * @param array<string, mixed> $config
-     */
-    protected function sortColumn(Request $request, array $config): string
-    {
-        $sort = $request->string('sort', Arr::first($config['sortable']))->value();
-
-        return in_array($sort, $config['sortable'], true)
-            ? $sort
-            : Arr::first($config['sortable']);
-    }
-
-    /**
-     * @param array<string, mixed> $config
      * @return array{0: string, 1: string}
      */
     protected function sortClause(Request $request, array $config): array

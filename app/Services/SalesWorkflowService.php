@@ -6,6 +6,7 @@ use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
 use App\Models\ProductStock;
 use App\Models\Quotation;
+use App\Models\QuotationItem;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Models\Invoice;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\DB;
 class SalesWorkflowService
 {
     /**
+     * Approve quotation dan buat Sales Order baru dari items-nya.
+     *
      * @param array<string, mixed> $attributes
      */
     public function approveQuotation(string $id, array $attributes): SalesOrder
@@ -58,6 +61,8 @@ class SalesWorkflowService
     }
 
     /**
+     * Approve Sales Order dan otomatis buat Invoice-nya.
+     *
      * @param array<string, mixed> $attributes
      */
     public function approveSalesOrder(string $id, array $attributes): SalesOrder
@@ -70,17 +75,20 @@ class SalesWorkflowService
                 ->firstOrFail();
 
             abort_if($salesOrder->items->isEmpty(), 422, 'Sales order must have at least one item before approval.');
-            abort_if($salesOrder->status !== 'draft' && $salesOrder->status !== 'processing', 422, 'Only draft or processing sales orders can be approved.');
+            abort_if(
+                $salesOrder->status !== 'draft' && $salesOrder->status !== 'processing',
+                422,
+                'Only draft or processing sales orders can be approved.'
+            );
 
             $salesOrder->forceFill(['status' => 'approved'])->save();
 
-            // Create Invoice
             $invoice = Invoice::query()->create([
                 'sales_order_id' => $salesOrder->id,
                 'customer_id' => $salesOrder->customer_id,
                 'invoice_date' => $attributes['invoice_date'] ?? date('Y-m-d'),
                 'due_date' => $attributes['due_date'] ?? date('Y-m-d', strtotime('+30 days')),
-                'subtotal' => $salesOrder->total, // Assuming total from SO is subtotal for invoice or needs calculation
+                'subtotal' => $salesOrder->total,
                 'tax_amount' => 0,
                 'total' => $salesOrder->total,
                 'status' => 'unpaid',
@@ -102,6 +110,133 @@ class SalesWorkflowService
     }
 
     /**
+     * Buat Quotation baru beserta item-itemnya dalam satu transaksi.
+     *
+     * @param array<string, mixed> $attributes
+     */
+    public function createQuotation(array $attributes): Quotation
+    {
+        return DB::transaction(function () use ($attributes): Quotation {
+            $items = $attributes['items'] ?? [];
+            unset($attributes['items']);
+
+            $quotation = Quotation::query()->create($attributes);
+
+            if (!empty($items)) {
+                [$subtotal, $taxAmount] = $this->createLineItems($quotation, 'quotation', $items);
+                $quotation->forceFill([
+                    'subtotal' => $subtotal,
+                    'tax_amount' => $taxAmount,
+                    'total' => $subtotal + $taxAmount,
+                ])->save();
+            }
+
+            return $quotation->fresh(['customer', 'items.product']) ?? $quotation;
+        });
+    }
+
+    /**
+     * Update Quotation dan sinkronisasi item-itemnya.
+     *
+     * @param array<string, mixed> $attributes
+     */
+    public function updateQuotation(string $id, array $attributes): Quotation
+    {
+        return DB::transaction(function () use ($id, $attributes): Quotation {
+            $quotation = Quotation::query()->whereKey($id)->firstOrFail();
+
+            $hasItems = array_key_exists('items', $attributes);
+            $items = $attributes['items'] ?? null;
+            unset($attributes['items']);
+
+            $quotation->fill($attributes)->save();
+
+            if ($hasItems && $items !== null) {
+                $quotation->items()->delete();
+                $taxAmount = $attributes['tax_amount'] ?? $quotation->tax_amount ?? 0;
+                [$subtotal] = $this->createLineItems($quotation, 'quotation', $items, $taxAmount);
+                $quotation->forceFill([
+                    'subtotal' => $subtotal,
+                    'tax_amount' => $taxAmount,
+                    'total' => $subtotal + $taxAmount,
+                ])->save();
+            }
+
+            return $quotation->fresh(['customer', 'items.product']) ?? $quotation;
+        });
+    }
+
+    /**
+     * Buat Sales Order baru beserta item-itemnya dalam satu transaksi.
+     * Jika berasal dari quotation, items akan di-copy dari quotation.
+     *
+     * @param array<string, mixed> $attributes
+     */
+    public function createSalesOrder(array $attributes): SalesOrder
+    {
+        return DB::transaction(function () use ($attributes): SalesOrder {
+            $hasItems = array_key_exists('items', $attributes);
+            $items = $attributes['items'] ?? [];
+            unset($attributes['items']);
+
+            $salesOrder = SalesOrder::query()->create($attributes);
+
+            // Jika berasal dari quotation dan tidak ada items eksplisit → copy dari quotation
+            if (!empty($attributes['quotation_id']) && (!$hasItems || empty($items))) {
+                $quotation = Quotation::query()->with('items')->find($attributes['quotation_id']);
+                if ($quotation) {
+                    $quotation->forceFill(['status' => 'approved'])->save();
+                    $subtotal = 0;
+                    foreach ($quotation->items as $qItem) {
+                        $salesOrder->items()->create([
+                            'product_id' => $qItem->product_id,
+                            'description' => $qItem->description,
+                            'quantity' => $qItem->quantity,
+                            'unit_price' => $qItem->unit_price,
+                            'subtotal' => $qItem->subtotal,
+                        ]);
+                        $subtotal += $qItem->subtotal;
+                    }
+                    $salesOrder->forceFill(['total' => $subtotal])->save();
+                }
+            } elseif ($hasItems && !empty($items)) {
+                [$subtotal] = $this->createLineItems($salesOrder, 'sales-order', $items);
+                $salesOrder->forceFill(['total' => $subtotal])->save();
+            }
+
+            return $salesOrder->fresh(['customer', 'quotation', 'items.product', 'deliveryOrders']) ?? $salesOrder;
+        });
+    }
+
+    /**
+     * Update Sales Order dan sinkronisasi item-itemnya.
+     *
+     * @param array<string, mixed> $attributes
+     */
+    public function updateSalesOrder(string $id, array $attributes): SalesOrder
+    {
+        return DB::transaction(function () use ($id, $attributes): SalesOrder {
+            $salesOrder = SalesOrder::query()->whereKey($id)->firstOrFail();
+
+            $hasItems = array_key_exists('items', $attributes);
+            $items = $attributes['items'] ?? null;
+            unset($attributes['items']);
+
+            $salesOrder->fill($attributes)->save();
+
+            if ($hasItems && $items !== null) {
+                $salesOrder->items()->delete();
+                [$subtotal] = $this->createLineItems($salesOrder, 'sales-order', $items);
+                $salesOrder->forceFill(['total' => $subtotal])->save();
+            }
+
+            return $salesOrder->fresh(['customer', 'quotation', 'items.product', 'deliveryOrders']) ?? $salesOrder;
+        });
+    }
+
+    /**
+     * Buat Delivery Order dari Sales Order yang sudah disetujui.
+     *
      * @param array<string, mixed> $attributes
      */
     public function createDeliveryOrder(string $id, array $attributes): DeliveryOrder
@@ -117,7 +252,6 @@ class SalesWorkflowService
             abort_if($salesOrder->status !== 'approved', 422, 'Only approved sales orders can be delivered.');
             abort_if($salesOrder->deliveryOrders()->exists(), 409, 'Sales order already has a delivery order.');
 
-            // Validate that the related invoice is partially or fully paid
             $invoice = $salesOrder->invoices()->first();
             abort_if(!$invoice, 422, 'Sales order must have an invoice before delivery.');
             abort_if((float) $invoice->paid_amount <= 0, 422, 'Invoice must be partially or fully paid before delivery.');
@@ -150,6 +284,8 @@ class SalesWorkflowService
     }
 
     /**
+     * Kirim Delivery Order — kurangi stok dan catat mutasi.
+     *
      * @param array<string, mixed> $attributes
      */
     public function shipDeliveryOrder(string $id, array $attributes): DeliveryOrder
@@ -198,5 +334,35 @@ class SalesWorkflowService
 
             return $deliveryOrder;
         });
+    }
+
+    /**
+     * Helper: buat line items untuk model (Quotation atau SalesOrder).
+     * Menghitung subtotal per item dan mengembalikan total subtotal + tax.
+     *
+     * @param \Illuminate\Database\Eloquent\Model $parent
+     * @param string $type 'quotation' | 'sales-order'
+     * @param array<int, array<string, mixed>> $items
+     * @param float $taxAmount
+     * @return array{0: float, 1: float} [subtotal, taxAmount]
+     */
+    private function createLineItems($parent, string $type, array $items, float $taxAmount = 0): array
+    {
+        $subtotal = 0.0;
+
+        foreach ($items as $itemData) {
+            $itemSubtotal = (float) ($itemData['quantity'] ?? 0) * (float) ($itemData['unit_price'] ?? 0);
+            $subtotal += $itemSubtotal;
+
+            $parent->items()->create([
+                'product_id' => $itemData['product_id'],
+                'description' => $itemData['description'] ?? null,
+                'quantity' => $itemData['quantity'],
+                'unit_price' => $itemData['unit_price'],
+                'subtotal' => $itemSubtotal,
+            ]);
+        }
+
+        return [$subtotal, $taxAmount];
     }
 }

@@ -17,7 +17,7 @@ use App\Http\Controllers\Api\PurchasingController;
 use App\Http\Controllers\Api\Purchasing\PurchasingQueryController;
 use App\Http\Controllers\Api\Reports\ReportsController;
 use App\Http\Controllers\Api\SalesController;
-use App\Http\Controllers\Api\Sales\SalesQueryController;
+
 use App\Http\Controllers\Api\SupportController;
 use Illuminate\Support\Facades\Route;
 
@@ -51,10 +51,6 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
         Route::get('products', 'products');
     });
 
-    Route::prefix('sales')->controller(SalesQueryController::class)->group(function () {
-        Route::get('orders', 'orders');
-        Route::get('invoices', 'invoices');
-    });
 
     Route::prefix('purchasing')->controller(PurchasingQueryController::class)->group(function () {
         Route::get('receivings', 'receivings');

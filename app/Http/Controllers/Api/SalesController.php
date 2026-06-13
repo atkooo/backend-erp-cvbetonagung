@@ -26,37 +26,37 @@ class SalesController extends ApiResourceController
             'model' => Quotation::class,
             'searchable' => ['quotation_number', 'notes'],
             'sortable' => ['quotation_number', 'quotation_date', 'valid_until', 'status', 'total'],
-            'relations' => ['customer', 'items.product'],
+            'relations' => ['customer', 'items.product.unit'],
         ],
         'quotation-items' => [
             'model' => QuotationItem::class,
             'searchable' => ['description'],
             'sortable' => ['quantity', 'unit_price', 'subtotal'],
-            'relations' => ['quotation', 'product'],
+            'relations' => ['quotation', 'product.unit'],
         ],
         'sales-orders' => [
             'model' => SalesOrder::class,
             'searchable' => ['order_number', 'notes'],
             'sortable' => ['order_number', 'order_date', 'status', 'total'],
-            'relations' => ['customer', 'quotation', 'items.product', 'deliveryOrders'],
+            'relations' => ['customer', 'quotation', 'items.product.unit', 'deliveryOrders', 'invoices'],
         ],
         'sales-order-items' => [
             'model' => SalesOrderItem::class,
             'searchable' => ['description'],
             'sortable' => ['quantity', 'unit_price', 'delivered_qty', 'subtotal'],
-            'relations' => ['salesOrder', 'product'],
+            'relations' => ['salesOrder', 'product.unit'],
         ],
         'delivery-orders' => [
             'model' => DeliveryOrder::class,
             'searchable' => ['delivery_number', 'notes', 'shipping_address'],
             'sortable' => ['delivery_number', 'delivery_date', 'status'],
-            'relations' => ['customer', 'salesOrder', 'items.product'],
+            'relations' => ['customer', 'salesOrder', 'items.product.unit'],
         ],
         'delivery-order-items' => [
             'model' => DeliveryOrderItem::class,
             'searchable' => ['notes'],
             'sortable' => ['quantity'],
-            'relations' => ['deliveryOrder', 'salesOrderItem', 'product'],
+            'relations' => ['deliveryOrder', 'salesOrderItem', 'product.unit'],
         ],
     ];
 

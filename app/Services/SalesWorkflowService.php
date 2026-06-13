@@ -50,6 +50,9 @@ class SalesWorkflowService
                     'sales_order_id' => $salesOrder->id,
                     'product_id' => $item->product_id,
                     'description' => $item->description,
+                    'piece_count' => $item->piece_count,
+                    'length' => $item->length,
+                    'specification' => $item->specification,
                     'quantity' => $item->quantity,
                     'unit_price' => $item->unit_price,
                     'subtotal' => $item->subtotal,
@@ -98,7 +101,7 @@ class SalesWorkflowService
                 InvoiceItem::query()->create([
                     'invoice_id' => $invoice->id,
                     'product_id' => $item->product_id,
-                    'description' => $item->description,
+                    'description' => $item->specification ?: $item->description,
                     'quantity' => $item->quantity,
                     'unit_price' => $item->unit_price,
                     'subtotal' => $item->subtotal,
@@ -191,6 +194,9 @@ class SalesWorkflowService
                         $salesOrder->items()->create([
                             'product_id' => $qItem->product_id,
                             'description' => $qItem->description,
+                            'piece_count' => $qItem->piece_count,
+                            'length' => $qItem->length,
+                            'specification' => $qItem->specification,
                             'quantity' => $qItem->quantity,
                             'unit_price' => $qItem->unit_price,
                             'subtotal' => $qItem->subtotal,
@@ -357,6 +363,9 @@ class SalesWorkflowService
             $parent->items()->create([
                 'product_id' => $itemData['product_id'],
                 'description' => $itemData['description'] ?? null,
+                'piece_count' => $itemData['piece_count'] ?? null,
+                'length' => $itemData['length'] ?? null,
+                'specification' => $itemData['specification'] ?? null,
                 'quantity' => $itemData['quantity'],
                 'unit_price' => $itemData['unit_price'],
                 'subtotal' => $itemSubtotal,

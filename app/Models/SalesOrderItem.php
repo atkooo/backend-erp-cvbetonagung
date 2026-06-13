@@ -12,6 +12,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'sales_order_id',
     'product_id',
     'description',
+    'piece_count',
+    'length',
+    'specification',
     'quantity',
     'unit_price',
     'subtotal',
@@ -42,6 +45,8 @@ class SalesOrderItem extends Model
     {
         return [
             'quantity' => 'decimal:2',
+            'piece_count' => 'decimal:2',
+            'length' => 'decimal:2',
             'unit_price' => 'decimal:2',
             'subtotal' => 'decimal:2',
         ];

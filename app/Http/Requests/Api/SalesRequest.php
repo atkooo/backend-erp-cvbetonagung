@@ -60,7 +60,7 @@ class SalesRequest extends FormRequest
                 'customer_id' => [...$required, 'uuid', Rule::exists('customers', 'id')],
                 'order_date' => [...$required, 'date'],
                 'total' => ['sometimes', 'numeric', 'min:0'],
-                'status' => ['sometimes', Rule::in(['draft', 'processing', 'completed', 'cancelled'])],
+                'status' => ['sometimes', Rule::in(['draft', 'processing', 'approved', 'completed', 'cancelled'])],
                 'notes' => [...$nullable, 'string'],
                 'items' => ['sometimes', 'array', 'min:1'],
                 'items.*.product_id' => [...$required, 'uuid', Rule::exists('products', 'id')],

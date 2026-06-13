@@ -43,8 +43,8 @@ class InventoryController extends ApiResourceController
         'stock-opname-items' => [
             'model' => StockOpnameItem::class,
             'searchable' => ['notes'],
-            'sortable' => ['system_qty', 'physical_qty', 'difference_qty'],
-            'relations' => ['session', 'product', 'location', 'approvalRequest'],
+            'sortable' => ['system_qty', 'physical_qty', 'difference_qty', 'created_at'],
+            'relations' => ['session', 'product.category', 'location', 'approvalRequest'],
         ],
         'approval-requests' => [
             'model' => ApprovalRequest::class,

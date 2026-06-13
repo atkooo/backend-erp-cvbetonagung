@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'sku',
     'type',
     'name',
+    'length',
+    'motif',
     'cost_price',
     'selling_price',
     'min_stock',

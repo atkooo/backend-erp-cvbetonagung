@@ -24,6 +24,28 @@ class ProductionWorkLog extends Model
 {
     use HasUuids;
 
+    protected static function booted(): void
+    {
+        static::created(function (ProductionWorkLog $log) {
+            $task = ProductionWorkOrderTask::where('work_order_id', $log->work_order_id)
+                ->where('task_name', $log->stage)
+                ->first();
+
+            if ($task) {
+                $task->completed_qty += $log->ok_qty;
+                $task->reject_qty += $log->reject_qty;
+                
+                if ($task->completed_qty > 0) {
+                    $task->status = 'In Progress';
+                }
+                if ($task->completed_qty >= $task->target_qty) {
+                    $task->status = 'Completed';
+                }
+                $task->save();
+            }
+        });
+    }
+
     public function workOrder(): BelongsTo
     {
         return $this->belongsTo(ProductionWorkOrder::class, 'work_order_id');

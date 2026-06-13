@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'invoice_id',
     'product_id',
     'description',
+    'piece_count',
+    'length',
     'quantity',
     'unit_price',
     'subtotal',

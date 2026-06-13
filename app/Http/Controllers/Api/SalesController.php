@@ -50,7 +50,7 @@ class SalesController extends ApiResourceController
             'model' => DeliveryOrder::class,
             'searchable' => ['delivery_number', 'notes', 'shipping_address'],
             'sortable' => ['delivery_number', 'delivery_date', 'status'],
-            'relations' => ['customer', 'salesOrder', 'items.product.unit'],
+            'relations' => ['customer', 'salesOrder', 'items.product.unit', 'items.salesOrderItem'],
         ],
         'delivery-order-items' => [
             'model' => DeliveryOrderItem::class,

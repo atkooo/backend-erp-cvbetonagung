@@ -281,7 +281,7 @@ class SalesWorkflowService
                     'delivery_order_id' => $deliveryOrder->id,
                     'sales_order_item_id' => $item->id,
                     'product_id' => $item->product_id,
-                    'quantity' => $item->quantity,
+                    'quantity' => $item->piece_count ?? $item->quantity,
                 ]);
             }
 

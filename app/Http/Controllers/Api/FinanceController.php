@@ -132,6 +132,8 @@ class FinanceController extends ApiResourceController
                             $model->items()->create([
                                 'product_id' => $soItem->product_id,
                                 'description' => $soItem->description,
+                                'piece_count' => $soItem->piece_count,
+                                'length' => $soItem->length,
                                 'quantity' => $soItem->quantity,
                                 'unit_price' => $soItem->unit_price,
                                 'subtotal' => $soItem->subtotal,
@@ -159,6 +161,8 @@ class FinanceController extends ApiResourceController
                     $model->items()->create([
                         'product_id' => $itemData['product_id'],
                         'description' => $itemData['description'] ?? null,
+                        'piece_count' => $itemData['piece_count'] ?? null,
+                        'length' => $itemData['length'] ?? null,
                         'quantity' => $itemData['quantity'],
                         'unit_price' => $itemData['unit_price'],
                         'subtotal' => $itemSubtotal,
@@ -203,6 +207,8 @@ class FinanceController extends ApiResourceController
                     $model->items()->create([
                         'product_id' => $itemData['product_id'],
                         'description' => $itemData['description'] ?? null,
+                        'piece_count' => $itemData['piece_count'] ?? null,
+                        'length' => $itemData['length'] ?? null,
                         'quantity' => $itemData['quantity'],
                         'unit_price' => $itemData['unit_price'],
                         'subtotal' => $itemSubtotal,

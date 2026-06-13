@@ -25,6 +25,35 @@ class ProductionWorkOrder extends Model
 {
     use HasUuids, GeneratesDocumentNumber;
 
+    protected static function booted(): void
+    {
+        static::created(function (ProductionWorkOrder $workOrder) {
+            $tasks = [
+                ['name' => 'Cetak', 'code_prefix' => 'TSK1'],
+                ['name' => 'Curing', 'code_prefix' => 'TSK2'],
+                ['name' => 'Finishing', 'code_prefix' => 'TSK3'],
+                ['name' => 'QC', 'code_prefix' => 'TSK4'],
+                ['name' => 'Siap Gudang', 'code_prefix' => 'TSK5'],
+            ];
+
+            $seq = 1;
+            foreach ($tasks as $task) {
+                // Generate a unique short code, e.g., TSK1-202606-0001
+                $woNum = str_replace('WO-', '', $workOrder->work_order_number);
+                $taskCode = $task['code_prefix'] . '-' . $woNum;
+                
+                ProductionWorkOrderTask::create([
+                    'work_order_id' => $workOrder->id,
+                    'task_code' => $taskCode,
+                    'task_name' => $task['name'],
+                    'status' => 'Pending',
+                    'sequence' => $seq++,
+                    'target_qty' => $workOrder->target_qty,
+                ]);
+            }
+        });
+    }
+
     public function documentNumberPrefix(): string
     {
         return 'WO';
@@ -53,6 +82,11 @@ class ProductionWorkOrder extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ProductionWorkOrderItem::class, 'work_order_id');
+    }
+
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(ProductionWorkOrderTask::class, 'work_order_id')->orderBy('sequence');
     }
 
     public function logs(): HasMany

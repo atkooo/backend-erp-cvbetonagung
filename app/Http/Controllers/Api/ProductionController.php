@@ -8,6 +8,7 @@ use App\Models\BomItem;
 use App\Models\ProductionWorkLog;
 use App\Models\ProductionWorkOrder;
 use App\Models\ProductionWorkOrderItem;
+use App\Models\ProductionWorkOrderTask;
 use App\Services\ProductionWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -30,13 +31,19 @@ class ProductionController extends ApiResourceController
             'model' => ProductionWorkOrder::class,
             'searchable' => ['work_order_number', 'source_label', 'stage'],
             'sortable' => ['work_order_number', 'stage', 'target_qty', 'completed_qty', 'progress', 'due_date', 'created_at'],
-            'relations' => ['product', 'salesOrder', 'project', 'items.product', 'logs.employee'],
+            'relations' => ['product', 'salesOrder', 'project', 'items.product', 'logs.employee', 'tasks.assignedEmployee'],
         ],
         'work-order-items' => [
             'model' => ProductionWorkOrderItem::class,
             'searchable' => ['notes'],
             'sortable' => ['quantity'],
             'relations' => ['workOrder', 'product'],
+        ],
+        'work-order-tasks' => [
+            'model' => ProductionWorkOrderTask::class,
+            'searchable' => ['task_code', 'task_name', 'status'],
+            'sortable' => ['sequence', 'task_code', 'status', 'created_at'],
+            'relations' => ['workOrder', 'assignedEmployee'],
         ],
         'work-logs' => [
             'model' => ProductionWorkLog::class,

@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Bom;
+use App\Models\ProjectBudgetItem;
 
 #[Fillable([
     'work_order_number',
@@ -50,6 +52,46 @@ class ProductionWorkOrder extends Model
                     'sequence' => $seq++,
                     'target_qty' => $workOrder->target_qty,
                 ]);
+            }
+
+            // Integrasi Cost ke RAB Proyek
+            if ($workOrder->project_id) {
+                $bom = Bom::where('product_id', $workOrder->product_id)
+                    ->orderBy('effective_from', 'desc')
+                    ->first();
+                
+                $unitCost = $bom ? $bom->total_cost : 0;
+                $estimatedCost = $unitCost * $workOrder->target_qty;
+
+                ProjectBudgetItem::create([
+                    'project_id' => $workOrder->project_id,
+                    'component' => 'Biaya Produksi ' . $workOrder->work_order_number,
+                    'budget_amount' => $estimatedCost,
+                    'actual_amount' => 0,
+                    'notes' => 'Otomatis di-generate dari Work Order ' . $workOrder->work_order_number,
+                ]);
+            }
+        });
+
+        static::updated(function (ProductionWorkOrder $workOrder) {
+            // Update actual_amount di RAB Proyek jika completed_qty atau target_qty berubah
+            if ($workOrder->project_id && ($workOrder->isDirty('completed_qty') || $workOrder->isDirty('target_qty'))) {
+                $budgetItem = ProjectBudgetItem::where('project_id', $workOrder->project_id)
+                    ->where('component', 'Biaya Produksi ' . $workOrder->work_order_number)
+                    ->first();
+
+                if ($budgetItem) {
+                    $bom = Bom::where('product_id', $workOrder->product_id)
+                        ->orderBy('effective_from', 'desc')
+                        ->first();
+                    
+                    $unitCost = $bom ? $bom->total_cost : 0;
+
+                    $budgetItem->update([
+                        'budget_amount' => $unitCost * $workOrder->target_qty, // menyesuaikan target jika berubah
+                        'actual_amount' => $unitCost * $workOrder->completed_qty,
+                    ]);
+                }
             }
         });
     }

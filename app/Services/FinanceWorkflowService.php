@@ -48,6 +48,18 @@ class FinanceWorkflowService
                 'notes' => $attributes['notes'] ?? $payment->notes,
             ])->save();
 
+            if ($payment->account_id) {
+                $this->recordCashTransaction([
+                    'account_id' => $payment->account_id,
+                    'type' => 'in',
+                    'amount' => $payment->amount,
+                    'transaction_date' => $payment->payment_date,
+                    'reference_type' => 'App\Models\Payment',
+                    'reference_id' => $payment->id,
+                    'description' => 'Penerimaan pembayaran faktur ' . ($invoice->invoice_number ?? $payment->invoice_id),
+                ]);
+            }
+
             return $payment;
         });
     }
@@ -76,6 +88,18 @@ class FinanceWorkflowService
                 'paid_amount' => $newPaidAmount,
                 'status' => $this->payableStatusFor($newPaidAmount, (float) $payable->amount),
             ])->save();
+
+            if (!empty($attributes['account_id'])) {
+                $this->recordCashTransaction([
+                    'account_id' => $attributes['account_id'],
+                    'type' => 'out',
+                    'amount' => $attributes['amount'],
+                    'transaction_date' => $attributes['paid_at'] ?? now()->toDateString(),
+                    'reference_type' => 'App\Models\SupplierPayable',
+                    'reference_id' => $payable->id,
+                    'description' => $attributes['notes'] ?? 'Pembayaran hutang supplier ' . $payable->payable_number,
+                ]);
+            }
 
             return $payable;
         });

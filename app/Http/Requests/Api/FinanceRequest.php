@@ -51,6 +51,7 @@ class FinanceRequest extends FormRequest
             ],
             'payments' => [
                 'invoice_id' => [...$required, 'uuid', Rule::exists('invoices', 'id')],
+                'account_id' => [...$required, 'uuid', Rule::exists('accounts', 'id')],
                 'payment_number' => [...$nullable, 'string', 'max:255', Rule::unique('payments', 'payment_number')->ignore($id)],
                 'payment_date' => [...$required, 'date'],
                 'method' => [...$required, Rule::in(['cash', 'transfer', 'qris'])],
@@ -72,7 +73,7 @@ class FinanceRequest extends FormRequest
             'accounts' => [
                 'code' => [...$required, 'string', 'max:255', Rule::unique('accounts', 'code')->ignore($id)],
                 'name' => [...$required, 'string', 'max:255'],
-                'type' => [...$required, Rule::in(['asset', 'liability', 'equity', 'revenue', 'expense'])],
+                'type' => [...$required, Rule::in(['asset', 'liability', 'equity', 'revenue', 'expense', 'cash', 'bank', 'ewallet'])],
                 'balance' => ['sometimes', 'numeric'],
                 'currency' => ['sometimes', 'string', 'size:3'],
                 'description' => [...$nullable, 'string'],

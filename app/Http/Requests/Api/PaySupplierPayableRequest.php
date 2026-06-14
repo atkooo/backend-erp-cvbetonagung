@@ -19,6 +19,7 @@ class PaySupplierPayableRequest extends FormRequest
     {
         return [
             'amount' => ['required', 'numeric', 'gt:0'],
+            'account_id' => ['required', 'uuid', Rule::exists('accounts', 'id')],
             'method' => ['sometimes', Rule::in(['cash', 'transfer', 'qris'])],
             'paid_by' => ['sometimes', 'nullable', 'uuid', Rule::exists('users', 'id')],
             'paid_at' => ['sometimes', 'nullable', 'date'],

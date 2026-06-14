@@ -179,6 +179,8 @@ class SalesController extends ApiResourceController
         $validated = $request->validate([
             'customer_id' => ['required', 'uuid', 'exists:customers,id'],
             'transaction_date' => ['nullable', 'date'],
+            'fulfillment_type' => ['nullable', 'string', 'in:take_away,delivery'],
+            'payment_account_id' => ['required', 'uuid', 'exists:accounts,id'],
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'uuid', 'exists:products,id'],
@@ -205,5 +207,20 @@ class SalesController extends ApiResourceController
             'product_id',
             'status',
         ];
+    }
+
+    protected function applyFilters(\Illuminate\Database\Eloquent\Builder $query, Request $request, array $config): void
+    {
+        parent::applyFilters($query, $request, $config);
+
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $dateColumn = match($config['model']) {
+                \App\Models\Quotation::class => 'quotation_date',
+                \App\Models\SalesOrder::class => 'order_date',
+                \App\Models\DeliveryOrder::class => 'delivery_date',
+                default => 'created_at',
+            };
+            $query->whereBetween($dateColumn, [$request->start_date, $request->end_date]);
+        }
     }
 }

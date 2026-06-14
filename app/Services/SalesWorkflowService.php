@@ -12,6 +12,7 @@ use App\Models\SalesOrderItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\StockMovement;
+use App\Models\CashTransaction;
 use Illuminate\Support\Facades\DB;
 
 class SalesWorkflowService
@@ -377,7 +378,9 @@ class SalesWorkflowService
 
     /**
      * Proses transaksi POS (Kasir Cepat).
-     * Menerima items, membuat SO (completed), memotong stok, dan membuat Invoice (paid).
+     * Menerima items, membuat SO, dan membuat Invoice (paid).
+     * Jika take_away, memotong stok langsung dan status SO completed.
+     * Jika delivery, membuat DeliveryOrder dan status SO pending_delivery.
      *
      * @param array<string, mixed> $attributes
      */
@@ -389,49 +392,70 @@ class SalesWorkflowService
 
             $customerId = $attributes['customer_id'];
 
+            $fulfillmentType = $attributes['fulfillment_type'] ?? 'take_away';
+            $isDelivery = $fulfillmentType === 'delivery';
+
             // 1. Create Sales Order
             $salesOrder = SalesOrder::query()->create([
                 'customer_id' => $customerId,
                 'order_date' => $attributes['transaction_date'] ?? date('Y-m-d'),
                 'total' => 0,
-                'status' => 'completed',
+                'status' => $isDelivery ? 'pending_delivery' : 'completed',
                 'notes' => $attributes['notes'] ?? 'Transaksi POS',
             ]);
 
             [$subtotal] = $this->createLineItems($salesOrder, 'sales-order', $items);
             $salesOrder->forceFill(['total' => $subtotal])->save();
 
-            // 2. Potong Stok (Delivery/StockMovement otomatis)
-            // Iterate over the original $items array to get the location_id for each item
-            // Since $salesOrder->items order matches the $items order (createLineItems processes them sequentially)
-            foreach ($salesOrder->items as $index => $item) {
-                $locationId = $items[$index]['location_id'];
-                
-                $stock = ProductStock::query()
-                    ->where('product_id', $item->product_id)
-                    ->where('location_id', $locationId)
-                    ->lockForUpdate()
-                    ->first();
-
-                abort_if($stock === null, 422, "Product stock record does not exist for product ID {$item->product_id} at the selected location.");
-                abort_if((float) $stock->quantity < (float) $item->quantity, 422, "Insufficient stock for product ID {$item->product_id}.");
-
-                $stock->quantity = (float) $stock->quantity - (float) $item->quantity;
-                $stock->save();
-
-                StockMovement::query()->create([
-                    'product_id' => $item->product_id,
-                    'from_location_id' => $locationId,
-                    'to_location_id' => null,
-                    'type' => 'out',
-                    'quantity' => $item->quantity,
-                    'reference_type' => 'pos',
-                    'reference_id' => $salesOrder->id,
-                    'reference_number' => $salesOrder->order_number,
-                    'handled_by' => auth()->id() ?? $attributes['handled_by'] ?? null,
-                    'notes' => 'Transaksi POS',
-                    'movement_at' => now(),
+            // 2. Fulfillment Logic
+            if ($isDelivery) {
+                // Buat Delivery Order berstatus draft
+                $deliveryOrder = DeliveryOrder::query()->create([
+                    'sales_order_id' => $salesOrder->id,
+                    'customer_id' => $customerId,
+                    'delivery_date' => $attributes['transaction_date'] ?? date('Y-m-d'),
+                    'status' => 'draft',
+                    'notes' => 'Otomatis dari POS (Kirim ke Lokasi)',
                 ]);
+
+                foreach ($salesOrder->items as $index => $item) {
+                    $deliveryOrder->items()->create([
+                        'sales_order_item_id' => $item->id,
+                        'product_id' => $item->product_id,
+                        'quantity' => $item->quantity,
+                    ]);
+                }
+            } else {
+                // Take Away: Potong Stok Langsung
+                foreach ($salesOrder->items as $index => $item) {
+                    $locationId = $items[$index]['location_id'];
+                    
+                    $stock = ProductStock::query()
+                        ->where('product_id', $item->product_id)
+                        ->where('location_id', $locationId)
+                        ->lockForUpdate()
+                        ->first();
+
+                    abort_if($stock === null, 422, "Product stock record does not exist for product ID {$item->product_id} at the selected location.");
+                    abort_if((float) $stock->quantity < (float) $item->quantity, 422, "Insufficient stock for product ID {$item->product_id}.");
+
+                    $stock->quantity = (float) $stock->quantity - (float) $item->quantity;
+                    $stock->save();
+
+                    StockMovement::query()->create([
+                        'product_id' => $item->product_id,
+                        'from_location_id' => $locationId,
+                        'to_location_id' => null,
+                        'type' => 'out',
+                        'quantity' => $item->quantity,
+                        'reference_type' => 'pos',
+                        'reference_id' => $salesOrder->id,
+                        'reference_number' => $salesOrder->order_number,
+                        'handled_by' => auth()->id() ?? $attributes['handled_by'] ?? null,
+                        'notes' => 'Transaksi POS (Take Away)',
+                        'movement_at' => now(),
+                    ]);
+                }
             }
 
             // 3. Create Invoice (Paid)
@@ -457,6 +481,20 @@ class SalesWorkflowService
                     'subtotal' => $item->subtotal,
                 ]);
             }
+
+            // 4. Create Cash Transaction (Receipt)
+            CashTransaction::query()->create([
+                'transaction_number' => CashTransaction::query()->max('transaction_number') ? str_pad((string)((int)CashTransaction::query()->max('transaction_number') + 1), 6, '0', STR_PAD_LEFT) : '000001',
+                'account_id' => $attributes['payment_account_id'],
+                'transaction_date' => $salesOrder->order_date,
+                'type' => 'in',
+                'amount' => $subtotal,
+                'category' => 'sales',
+                'description' => 'Pembayaran POS: ' . $salesOrder->order_number,
+                'reference_type' => 'invoice',
+                'reference_id' => $invoice->id,
+                'recorded_by' => auth()->id() ?? clone $attributes['handled_by'] ?? null,
+            ]);
 
             return $salesOrder->fresh(['customer', 'items.product', 'invoices']) ?? $salesOrder;
         });

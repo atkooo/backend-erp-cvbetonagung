@@ -13,7 +13,7 @@ class InventoryQueryController extends Controller
     {
         return response()->json([
             'data' => ProductStock::query()
-                ->with(['product.unit', 'location'])
+                ->with(['product.unit', 'location.warehouse'])
                 ->get(),
         ]);
     }

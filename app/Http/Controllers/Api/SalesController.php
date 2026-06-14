@@ -178,11 +178,11 @@ class SalesController extends ApiResourceController
     {
         $validated = $request->validate([
             'customer_id' => ['required', 'uuid', 'exists:customers,id'],
-            'location_id' => ['required', 'uuid', 'exists:storage_locations,id'],
             'transaction_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'uuid', 'exists:products,id'],
+            'items.*.location_id' => ['required', 'uuid', 'exists:storage_locations,id'],
             'items.*.description' => ['nullable', 'string'],
             'items.*.specification' => ['nullable', 'string'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],

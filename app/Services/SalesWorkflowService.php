@@ -388,7 +388,6 @@ class SalesWorkflowService
             abort_if(empty($items), 422, 'POS transaction must have at least one item.');
 
             $customerId = $attributes['customer_id'];
-            $locationId = $attributes['location_id'];
 
             // 1. Create Sales Order
             $salesOrder = SalesOrder::query()->create([
@@ -403,7 +402,11 @@ class SalesWorkflowService
             $salesOrder->forceFill(['total' => $subtotal])->save();
 
             // 2. Potong Stok (Delivery/StockMovement otomatis)
-            foreach ($salesOrder->items as $item) {
+            // Iterate over the original $items array to get the location_id for each item
+            // Since $salesOrder->items order matches the $items order (createLineItems processes them sequentially)
+            foreach ($salesOrder->items as $index => $item) {
+                $locationId = $items[$index]['location_id'];
+                
                 $stock = ProductStock::query()
                     ->where('product_id', $item->product_id)
                     ->where('location_id', $locationId)
@@ -425,7 +428,7 @@ class SalesWorkflowService
                     'reference_type' => 'pos',
                     'reference_id' => $salesOrder->id,
                     'reference_number' => $salesOrder->order_number,
-                    'handled_by' => $attributes['handled_by'] ?? null,
+                    'handled_by' => auth()->id() ?? $attributes['handled_by'] ?? null,
                     'notes' => 'Transaksi POS',
                     'movement_at' => now(),
                 ]);

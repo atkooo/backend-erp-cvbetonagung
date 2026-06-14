@@ -27,6 +27,34 @@ class Project extends Model
 {
     use HasUuids, GeneratesDocumentNumber;
 
+    protected static function booted(): void
+    {
+        static::created(function (Project $project) {
+            $stages = [
+                ['name' => 'Survey Lokasi', 'code_prefix' => 'TSK1'],
+                ['name' => 'Produksi Workshop', 'code_prefix' => 'TSK2'],
+                ['name' => 'Pengiriman Material', 'code_prefix' => 'TSK3'],
+                ['name' => 'Pemasangan Scaffolding', 'code_prefix' => 'TSK4'],
+                ['name' => 'Penyelesaian Pekerjaan', 'code_prefix' => 'TSK5'],
+                ['name' => 'Selesai & Serah Terima', 'code_prefix' => 'TSK6'],
+            ];
+
+            $seq = 1;
+            foreach ($stages as $stage) {
+                $prjNum = str_replace('PRJ-', '', $project->code);
+                $taskCode = $stage['code_prefix'] . '-' . $prjNum;
+                
+                ProjectTask::create([
+                    'project_id' => $project->id,
+                    'task_code' => $taskCode,
+                    'task_name' => $stage['name'],
+                    'status' => 'Pending',
+                    'sequence' => $seq++,
+                ]);
+            }
+        });
+    }
+
     public function documentNumberPrefix(): string
     {
         return 'PRJ';
@@ -80,6 +108,11 @@ class Project extends Model
     public function productionWorkOrders(): HasMany
     {
         return $this->hasMany(ProductionWorkOrder::class);
+    }
+
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(ProjectTask::class)->orderBy('sequence');
     }
 
     protected function casts(): array

@@ -22,7 +22,13 @@ class ProjectController extends ApiResourceController
             'model' => Project::class,
             'searchable' => ['code', 'project_name', 'location', 'project_type', 'project_spec'],
             'sortable' => ['code', 'project_name', 'deadline', 'progress', 'status', 'contract_value', 'created_at'],
-            'relations' => ['customer', 'quotation', 'salesOrder', 'timelines', 'documents', 'budgetItems', 'termins'],
+            'relations' => ['customer', 'quotation', 'salesOrder', 'timelines', 'documents', 'budgetItems', 'termins', 'tasks'],
+        ],
+        'project-tasks' => [
+            'model' => \App\Models\ProjectTask::class,
+            'searchable' => ['task_code', 'task_name', 'status', 'notes'],
+            'sortable' => ['sequence', 'task_code', 'status', 'target_date', 'completed_date', 'created_at'],
+            'relations' => ['project'],
         ],
         'project-timelines' => [
             'model' => ProjectTimeline::class,

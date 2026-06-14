@@ -68,6 +68,11 @@ class ProjectRequest extends FormRequest
                 'actual_amount' => ['sometimes', 'numeric', 'min:0'],
                 'notes' => [...$nullable, 'string'],
             ],
+            'project-tasks' => [
+                'status' => ['sometimes', Rule::in(['Pending', 'In Progress', 'Completed'])],
+                'completed_date' => [...$nullable, 'date'],
+                'notes' => [...$nullable, 'string'],
+            ],
             default => [],
         };
     }

@@ -40,6 +40,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('system')->controller(\App\Http\Controllers\Api\SystemController::class)->group(function () {
         Route::get('backup', 'exportBackup');
     });
+
+    Route::prefix('settings')->controller(\App\Http\Controllers\Api\SettingsController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::post('/', 'store');
+    });
 });
 
 Route::middleware(['auth:sanctum', 'permission'])->group(function () {

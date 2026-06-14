@@ -92,6 +92,22 @@ class FinanceController extends ApiResourceController
             return response()->json(['data' => $transaction], 201);
         }
 
+        if ($resource === 'payments') {
+            $invoiceId = $request->input('invoice_id');
+            if ($invoiceId) {
+                // Check if there is already a pending payment for this invoice
+                $pendingPayment = \App\Models\Payment::where('invoice_id', $invoiceId)
+                    ->where('status', 'pending')
+                    ->first();
+                
+                if ($pendingPayment) {
+                    return response()->json([
+                        'message' => 'Tidak dapat membuat pembayaran baru karena masih ada pembayaran berstatus Pending untuk Invoice ini.'
+                    ], 422);
+                }
+            }
+        }
+
         return $this->storeResource($resource, $request->validated());
     }
 

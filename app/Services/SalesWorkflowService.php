@@ -483,8 +483,7 @@ class SalesWorkflowService
             }
 
             // 4. Create Cash Transaction (Receipt)
-            CashTransaction::query()->create([
-                'transaction_number' => CashTransaction::query()->max('transaction_number') ? str_pad((string)((int)CashTransaction::query()->max('transaction_number') + 1), 6, '0', STR_PAD_LEFT) : '000001',
+            app(\App\Services\FinanceWorkflowService::class)->recordCashTransaction([
                 'account_id' => $attributes['payment_account_id'],
                 'transaction_date' => $salesOrder->order_date,
                 'type' => 'in',
@@ -493,7 +492,7 @@ class SalesWorkflowService
                 'description' => 'Pembayaran POS: ' . $salesOrder->order_number,
                 'reference_type' => 'invoice',
                 'reference_id' => $invoice->id,
-                'recorded_by' => auth()->id() ?? clone $attributes['handled_by'] ?? null,
+                'recorded_by' => auth()->id() ?? $attributes['handled_by'] ?? null,
             ]);
 
             return $salesOrder->fresh(['customer', 'items.product', 'invoices']) ?? $salesOrder;

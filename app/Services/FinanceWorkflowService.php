@@ -139,6 +139,15 @@ class FinanceWorkflowService
         return DB::transaction(function () use ($attributes): CashTransaction {
             $account = Account::query()->lockForUpdate()->findOrFail($attributes['account_id']);
             
+            if (empty($attributes['transaction_number'])) {
+                $prefix = $attributes['type'] === 'in' ? 'CASH-IN-' : 'CASH-OUT-';
+                $attributes['transaction_number'] = $prefix . date('Ym') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+            }
+
+            if (empty($attributes['category'])) {
+                $attributes['category'] = $attributes['type'] === 'in' ? 'revenue' : 'expense';
+            }
+
             $transaction = CashTransaction::create($attributes);
 
             if ($transaction->type === 'in') {

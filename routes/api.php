@@ -144,6 +144,7 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
             });
     });
 
+    Route::post('sales/pos', [SalesController::class, 'processPos']);
     Route::post('sales/quotations/{id}/approve', [SalesController::class, 'approveQuotation'])
         ->whereUuid('id');
     Route::post('sales/sales-orders/{id}/approve', [SalesController::class, 'approveSalesOrder'])

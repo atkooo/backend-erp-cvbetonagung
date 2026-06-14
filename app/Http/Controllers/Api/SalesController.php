@@ -174,6 +174,28 @@ class SalesController extends ApiResourceController
         return response()->json(['data' => $deliveryOrder->fresh($config['relations'] ?? [])], 200);
     }
 
+    public function processPos(Request $request, SalesWorkflowService $service): JsonResponse
+    {
+        $validated = $request->validate([
+            'customer_id' => ['required', 'uuid', 'exists:customers,id'],
+            'location_id' => ['required', 'uuid', 'exists:storage_locations,id'],
+            'transaction_date' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'uuid', 'exists:products,id'],
+            'items.*.description' => ['nullable', 'string'],
+            'items.*.specification' => ['nullable', 'string'],
+            'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
+            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'handled_by' => ['nullable', 'string'],
+        ]);
+
+        $salesOrder = $service->processPOS($validated);
+        $config = $this->resourceConfig('sales-orders');
+
+        return response()->json(['data' => $salesOrder->fresh($config['relations'] ?? [])], 201);
+    }
+
     protected function filterableColumns(): array
     {
         return [

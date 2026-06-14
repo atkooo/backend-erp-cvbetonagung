@@ -374,4 +374,88 @@ class SalesWorkflowService
 
         return [$subtotal, $taxAmount];
     }
+
+    /**
+     * Proses transaksi POS (Kasir Cepat).
+     * Menerima items, membuat SO (completed), memotong stok, dan membuat Invoice (paid).
+     *
+     * @param array<string, mixed> $attributes
+     */
+    public function processPOS(array $attributes): SalesOrder
+    {
+        return DB::transaction(function () use ($attributes): SalesOrder {
+            $items = $attributes['items'] ?? [];
+            abort_if(empty($items), 422, 'POS transaction must have at least one item.');
+
+            $customerId = $attributes['customer_id'];
+            $locationId = $attributes['location_id'];
+
+            // 1. Create Sales Order
+            $salesOrder = SalesOrder::query()->create([
+                'customer_id' => $customerId,
+                'order_date' => $attributes['transaction_date'] ?? date('Y-m-d'),
+                'total' => 0,
+                'status' => 'completed',
+                'notes' => $attributes['notes'] ?? 'Transaksi POS',
+            ]);
+
+            [$subtotal] = $this->createLineItems($salesOrder, 'sales-order', $items);
+            $salesOrder->forceFill(['total' => $subtotal])->save();
+
+            // 2. Potong Stok (Delivery/StockMovement otomatis)
+            foreach ($salesOrder->items as $item) {
+                $stock = ProductStock::query()
+                    ->where('product_id', $item->product_id)
+                    ->where('location_id', $locationId)
+                    ->lockForUpdate()
+                    ->first();
+
+                abort_if($stock === null, 422, "Product stock record does not exist for product ID {$item->product_id} at the selected location.");
+                abort_if((float) $stock->quantity < (float) $item->quantity, 422, "Insufficient stock for product ID {$item->product_id}.");
+
+                $stock->quantity = (float) $stock->quantity - (float) $item->quantity;
+                $stock->save();
+
+                StockMovement::query()->create([
+                    'product_id' => $item->product_id,
+                    'from_location_id' => $locationId,
+                    'to_location_id' => null,
+                    'type' => 'out',
+                    'quantity' => $item->quantity,
+                    'reference_type' => 'pos',
+                    'reference_id' => $salesOrder->id,
+                    'reference_number' => $salesOrder->order_number,
+                    'handled_by' => $attributes['handled_by'] ?? null,
+                    'notes' => 'Transaksi POS',
+                    'movement_at' => now(),
+                ]);
+            }
+
+            // 3. Create Invoice (Paid)
+            $invoice = Invoice::query()->create([
+                'sales_order_id' => $salesOrder->id,
+                'customer_id' => $customerId,
+                'invoice_date' => $salesOrder->order_date,
+                'due_date' => $salesOrder->order_date,
+                'subtotal' => $subtotal,
+                'tax_amount' => 0,
+                'total' => $subtotal,
+                'status' => 'paid',
+                'paid_amount' => $subtotal,
+            ]);
+
+            foreach ($salesOrder->items as $item) {
+                InvoiceItem::query()->create([
+                    'invoice_id' => $invoice->id,
+                    'product_id' => $item->product_id,
+                    'description' => $item->specification ?: $item->description,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'subtotal' => $item->subtotal,
+                ]);
+            }
+
+            return $salesOrder->fresh(['customer', 'items.product', 'invoices']) ?? $salesOrder;
+        });
+    }
 }

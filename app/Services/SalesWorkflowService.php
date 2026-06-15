@@ -428,8 +428,15 @@ class SalesWorkflowService
                     ]);
                 }
             } else {
-                // Take Away: Potong Stok Langsung
+                // Take Away: Potong Stok Langsung untuk barang non-PO
+                $poItems = [];
                 foreach ($salesOrder->items as $index => $item) {
+                    $product = \App\Models\Product::find($item->product_id);
+                    if ($product && $product->is_customizable) {
+                        $poItems[] = $item;
+                        continue;
+                    }
+
                     $locationId = $items[$index]['location_id'];
                     
                     $stock = ProductStock::query()
@@ -458,9 +465,36 @@ class SalesWorkflowService
                         'movement_at' => now(),
                     ]);
                 }
+
+                if (!empty($poItems)) {
+                    // Buat DO untuk barang PO
+                    $deliveryOrder = DeliveryOrder::query()->create([
+                        'sales_order_id' => $salesOrder->id,
+                        'customer_id' => $customerId,
+                        'delivery_date' => $attributes['transaction_date'] ?? date('Y-m-d'),
+                        'status' => 'draft',
+                        'notes' => 'Otomatis dari POS (Barang PO - Kirim Menyusul)',
+                    ]);
+
+                    foreach ($poItems as $item) {
+                        $deliveryOrder->items()->create([
+                            'sales_order_item_id' => $item->id,
+                            'product_id' => $item->product_id,
+                            'quantity' => $item->quantity,
+                        ]);
+                    }
+
+                    // Update SO status to pending_delivery if it was completed
+                    if ($salesOrder->status === 'completed') {
+                        $salesOrder->forceFill(['status' => 'pending_delivery'])->save();
+                    }
+                }
             }
 
-            // 3. Create Invoice (Paid)
+            $amountPaid = isset($attributes['amount_paid']) ? (float) $attributes['amount_paid'] : (float) $subtotal;
+            $invoiceStatus = $amountPaid >= (float) $subtotal ? 'paid' : 'partial';
+
+            // 3. Create Invoice
             $invoice = Invoice::query()->create([
                 'sales_order_id' => $salesOrder->id,
                 'customer_id' => $customerId,
@@ -469,8 +503,8 @@ class SalesWorkflowService
                 'subtotal' => $subtotal,
                 'tax_amount' => 0,
                 'total' => $subtotal,
-                'status' => 'paid',
-                'paid_amount' => $subtotal,
+                'status' => $invoiceStatus,
+                'paid_amount' => min($amountPaid, $subtotal),
             ]);
 
             foreach ($salesOrder->items as $item) {
@@ -485,17 +519,19 @@ class SalesWorkflowService
             }
 
             // 4. Create Cash Transaction (Receipt)
-            app(\App\Services\FinanceWorkflowService::class)->recordCashTransaction([
-                'account_id' => $attributes['payment_account_id'],
-                'transaction_date' => $salesOrder->order_date,
-                'type' => 'in',
-                'amount' => $subtotal,
-                'category' => 'sales',
-                'description' => 'Pembayaran POS: ' . $salesOrder->order_number,
-                'reference_type' => 'invoice',
-                'reference_id' => $invoice->id,
-                'recorded_by' => auth()->id() ?? $attributes['handled_by'] ?? null,
-            ]);
+            if ($amountPaid > 0) {
+                app(\App\Services\FinanceWorkflowService::class)->recordCashTransaction([
+                    'account_id' => $attributes['payment_account_id'],
+                    'transaction_date' => $salesOrder->order_date,
+                    'type' => 'in',
+                    'amount' => $amountPaid,
+                    'category' => 'sales',
+                    'description' => 'Pembayaran POS: ' . $salesOrder->order_number,
+                    'reference_type' => 'invoice',
+                    'reference_id' => $invoice->id,
+                    'recorded_by' => auth()->id() ?? $attributes['handled_by'] ?? null,
+                ]);
+            }
 
             return $salesOrder->fresh(['customer', 'items.product', 'invoices']) ?? $salesOrder;
         });

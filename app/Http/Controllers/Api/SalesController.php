@@ -181,6 +181,7 @@ class SalesController extends ApiResourceController
             'transaction_date' => ['nullable', 'date'],
             'fulfillment_type' => ['nullable', 'string', 'in:take_away,delivery'],
             'payment_account_id' => ['required', 'uuid', 'exists:accounts,id'],
+            'amount_paid' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'uuid', 'exists:products,id'],

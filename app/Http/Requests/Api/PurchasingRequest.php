@@ -26,6 +26,7 @@ class PurchasingRequest extends FormRequest
             'purchase-orders' => [
                 'po_number' => [...$nullable, 'string', 'max:255', Rule::unique('purchase_orders', 'po_number')->ignore($id)],
                 'supplier_id' => [...$required, 'uuid', Rule::exists('suppliers', 'id')],
+                'sales_order_id' => [...$nullable, 'uuid', Rule::exists('sales_orders', 'id')],
                 'purchase_request_id' => [...$nullable, 'uuid', Rule::exists('purchase_requests', 'id')],
                 'rfq_id' => [...$nullable, 'uuid', Rule::exists('rfqs', 'id')],
                 'po_date' => [...$required, 'date'],

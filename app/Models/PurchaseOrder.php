@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'po_number',
     'supplier_id',
+    'sales_order_id',
     'purchase_request_id',
     'rfq_id',
     'po_date',
@@ -41,6 +42,11 @@ class PurchaseOrder extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function salesOrder(): BelongsTo
+    {
+        return $this->belongsTo(SalesOrder::class);
     }
 
     public function purchaseRequest(): BelongsTo

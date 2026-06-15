@@ -72,6 +72,11 @@ class SalesOrder extends Model
         return $this->hasMany(ProductionWorkOrder::class);
     }
 
+    public function purchaseOrders(): HasMany
+    {
+        return $this->hasMany(PurchaseOrder::class);
+    }
+
     protected function serializeDate(\DateTimeInterface $date): string
     {
         return $date->format('Y-m-d');

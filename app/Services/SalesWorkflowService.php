@@ -183,6 +183,7 @@ class SalesWorkflowService
             $items = $attributes['items'] ?? [];
             unset($attributes['items']);
 
+            $attributes['source'] = 'erp';
             $salesOrder = SalesOrder::query()->create($attributes);
 
             // Jika berasal dari quotation dan tidak ada items eksplisit → copy dari quotation
@@ -401,6 +402,7 @@ class SalesWorkflowService
                 'order_date' => $attributes['transaction_date'] ?? date('Y-m-d'),
                 'total' => 0,
                 'status' => $isDelivery ? 'pending_delivery' : 'completed',
+                'source' => 'pos',
                 'notes' => $attributes['notes'] ?? 'Transaksi POS',
             ]);
 

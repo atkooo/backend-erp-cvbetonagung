@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'order_date',
     'total',
     'status',
+    'source',
     'notes',
 ])]
 class SalesOrder extends Model

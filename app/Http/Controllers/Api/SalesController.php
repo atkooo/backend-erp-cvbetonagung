@@ -206,6 +206,7 @@ class SalesController extends ApiResourceController
             'sales_order_id',
             'product_id',
             'status',
+            'source',
         ];
     }
 

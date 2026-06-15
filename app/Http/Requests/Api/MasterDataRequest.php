@@ -72,6 +72,7 @@ class MasterDataRequest extends FormRequest
                 'description' => [...$nullable, 'string'],
             ],
             'products' => [
+                'business_unit' => [...$nullable, 'string', 'max:255'],
                 'category_id' => [...$nullable, 'uuid', Rule::exists('product_categories', 'id')],
                 'unit_id' => [...$nullable, 'uuid', Rule::exists('units', 'id')],
                 'sku' => [...$nullable, 'string', 'max:255', Rule::unique('products', 'sku')->ignore($id)],

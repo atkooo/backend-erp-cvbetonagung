@@ -433,13 +433,10 @@ class SalesWorkflowService
                 if ($product && $product->is_customizable) {
                     $poItems[] = $item;
                 } else {
-                    $stock = ProductStock::query()
+                    $availableStock = (float) ProductStock::query()
                         ->where('product_id', $item->product_id)
-                        ->where('location_id', $locationId)
-                        ->lockForUpdate()
-                        ->first();
+                        ->sum('quantity');
 
-                    $availableStock = $stock ? (float) $stock->quantity : 0;
                     $requestedQuantity = (float) $item->quantity;
 
                     if ($requestedQuantity <= $availableStock) {
@@ -476,22 +473,27 @@ class SalesWorkflowService
                     $locationId = $rItem['location_id'];
                     $qtyToCut = $rItem['quantity'];
                     
-                    $stock = ProductStock::query()
+                    $stocks = ProductStock::query()
                         ->where('product_id', $item->product_id)
-                        ->where('location_id', $locationId)
+                        ->where('quantity', '>', 0)
                         ->lockForUpdate()
-                        ->first();
+                        ->get();
 
-                    if ($stock && $stock->quantity >= $qtyToCut) {
-                        $stock->quantity = (float) $stock->quantity - $qtyToCut;
+                    $remainingToCut = $qtyToCut;
+
+                    foreach ($stocks as $stock) {
+                        if ($remainingToCut <= 0) break;
+
+                        $cut = min((float) $stock->quantity, $remainingToCut);
+                        $stock->quantity = (float) $stock->quantity - $cut;
                         $stock->save();
 
                         StockMovement::query()->create([
                             'product_id' => $item->product_id,
-                            'from_location_id' => $locationId,
+                            'from_location_id' => $stock->location_id,
                             'to_location_id' => null,
                             'type' => 'out',
-                            'quantity' => $qtyToCut,
+                            'quantity' => $cut,
                             'reference_type' => 'pos',
                             'reference_id' => $salesOrder->id,
                             'reference_number' => $salesOrder->order_number,
@@ -499,6 +501,8 @@ class SalesWorkflowService
                             'notes' => 'Transaksi POS (Take Away)',
                             'movement_at' => now(),
                         ]);
+
+                        $remainingToCut -= $cut;
                     }
                 }
 
@@ -580,7 +584,8 @@ class SalesWorkflowService
                 ]);
             }
 
-            return $salesOrder->fresh(['customer', 'items.product', 'invoices']) ?? $salesOrder;
+            $salesOrder->load(['customer', 'items.product', 'invoices', 'deliveryOrders.items']);
+            return $salesOrder;
         });
     }
 }

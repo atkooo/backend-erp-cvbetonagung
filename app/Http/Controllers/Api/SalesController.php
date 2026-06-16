@@ -38,7 +38,7 @@ class SalesController extends ApiResourceController
             'model' => SalesOrder::class,
             'searchable' => ['order_number', 'notes'],
             'sortable' => ['order_number', 'order_date', 'status', 'total'],
-            'relations' => ['customer', 'quotation', 'items.product.unit', 'deliveryOrders', 'invoices'],
+            'relations' => ['customer', 'quotation', 'items.product.unit', 'deliveryOrders.items', 'invoices'],
         ],
         'sales-order-items' => [
             'model' => SalesOrderItem::class,

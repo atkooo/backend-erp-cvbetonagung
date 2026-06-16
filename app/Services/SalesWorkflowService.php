@@ -410,34 +410,57 @@ class SalesWorkflowService
             $salesOrder->forceFill(['total' => $subtotal])->save();
 
             // 2. Fulfillment Logic
-            if ($isDelivery) {
-                // Buat Delivery Order berstatus draft
-                $deliveryOrder = DeliveryOrder::query()->create([
-                    'sales_order_id' => $salesOrder->id,
-                    'customer_id' => $customerId,
-                    'delivery_date' => $attributes['transaction_date'] ?? date('Y-m-d'),
-                    'status' => 'draft',
-                    'notes' => 'Otomatis dari POS (Kirim ke Lokasi)',
-                ]);
+            $readyItems = [];
+            $poItems = [];
+            foreach ($salesOrder->items as $index => $item) {
+                $product = \App\Models\Product::find($item->product_id);
+                if ($product && $product->is_customizable) {
+                    $poItems[] = $item;
+                } else {
+                    $readyItems[] = ['item' => $item, 'location_id' => $items[$index]['location_id'] ?? null];
+                }
+            }
 
-                foreach ($salesOrder->items as $index => $item) {
-                    $deliveryOrder->items()->create([
-                        'sales_order_item_id' => $item->id,
-                        'product_id' => $item->product_id,
-                        'quantity' => $item->quantity,
+            if ($isDelivery) {
+                // Buat DO untuk barang ready
+                if (!empty($readyItems)) {
+                    $deliveryOrderReady = DeliveryOrder::query()->create([
+                        'sales_order_id' => $salesOrder->id,
+                        'customer_id' => $customerId,
+                        'delivery_date' => $attributes['transaction_date'] ?? date('Y-m-d'),
+                        'status' => 'draft',
+                        'notes' => 'Otomatis dari POS (Barang Ready - Kirim ke Lokasi)',
                     ]);
+                    foreach ($readyItems as $rItem) {
+                        $deliveryOrderReady->items()->create([
+                            'sales_order_item_id' => $rItem['item']->id,
+                            'product_id' => $rItem['item']->product_id,
+                            'quantity' => $rItem['item']->quantity,
+                        ]);
+                    }
+                }
+                // Buat DO untuk barang PO
+                if (!empty($poItems)) {
+                    $deliveryOrderPO = DeliveryOrder::query()->create([
+                        'sales_order_id' => $salesOrder->id,
+                        'customer_id' => $customerId,
+                        'delivery_date' => $attributes['transaction_date'] ?? date('Y-m-d'),
+                        'status' => 'draft',
+                        'notes' => 'Otomatis dari POS (Barang PO/Inden - Kirim Menyusul)',
+                    ]);
+                    foreach ($poItems as $pItem) {
+                        $deliveryOrderPO->items()->create([
+                            'sales_order_item_id' => $pItem->id,
+                            'product_id' => $pItem->product_id,
+                            'quantity' => $pItem->quantity,
+                        ]);
+                    }
                 }
             } else {
                 // Take Away: Potong Stok Langsung untuk barang non-PO
-                $poItems = [];
-                foreach ($salesOrder->items as $index => $item) {
-                    $product = \App\Models\Product::find($item->product_id);
-                    if ($product && $product->is_customizable) {
-                        $poItems[] = $item;
-                        continue;
-                    }
-
-                    $locationId = $items[$index]['location_id'];
+                foreach ($readyItems as $rItem) {
+                    $item = $rItem['item'];
+                    $locationId = $rItem['location_id'];
                     
                     $stock = ProductStock::query()
                         ->where('product_id', $item->product_id)

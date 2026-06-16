@@ -6,6 +6,11 @@ use App\Models\ProductStock;
 use App\Models\PurchaseOrder;
 use App\Models\StockMovement;
 use App\Models\SupplierPayable;
+use App\Models\ProductReturn;
+use App\Models\StorageLocation;
+use App\Models\Invoice;
+use App\Models\SalesOrderItem;
+use App\Models\PurchaseOrderItem;
 use Illuminate\Support\Facades\DB;
 
 class PurchasingWorkflowService
@@ -123,5 +128,109 @@ class PurchasingWorkflowService
         }
 
         return $receivedQty >= $totalQty ? 'fully_received' : 'partially_received';
+    }
+
+    public function approveReturn(string $id): ProductReturn
+    {
+        return DB::transaction(function () use ($id): ProductReturn {
+            $return = ProductReturn::query()->with('items')->findOrFail($id);
+
+            abort_if($return->qc_status === 'approved', 422, 'Return is already approved.');
+
+            $return->qc_status = 'approved';
+            $return->save();
+
+            $location = StorageLocation::first();
+            $locationId = $location ? $location->id : null;
+
+            foreach ($return->items as $item) {
+                if ($return->type === 'customer') {
+                    // Customer Return (Internal Defect): Item goes back to Warehouse
+                    $stock = ProductStock::query()->firstOrNew([
+                        'product_id' => $item->product_id,
+                        'location_id' => $locationId,
+                    ]);
+                    $stock->quantity = (float)($stock->quantity ?? 0) + $item->quantity;
+                    $stock->save();
+
+                    StockMovement::query()->create([
+                        'product_id' => $item->product_id,
+                        'from_location_id' => null,
+                        'to_location_id' => $locationId,
+                        'type' => 'in',
+                        'quantity' => $item->quantity,
+                        'reference_type' => 'return',
+                        'reference_id' => $return->id,
+                        'reference_number' => $return->return_number,
+                        'notes' => 'Customer Return Approved',
+                        'movement_at' => now(),
+                    ]);
+
+                    if ($return->sales_order_id) {
+                        $invoice = Invoice::where('sales_order_id', $return->sales_order_id)->first();
+                        if ($invoice) {
+                            $soItem = SalesOrderItem::where('sales_order_id', $return->sales_order_id)
+                                ->where('product_id', $item->product_id)
+                                ->first();
+                            if ($soItem) {
+                                $deduction = $item->quantity * $soItem->unit_price;
+                                $invoice->amount = max(0, $invoice->amount - $deduction);
+                                $invoice->status = $invoice->paid_amount >= $invoice->amount ? 'paid' : 'partial';
+                                $invoice->save();
+                            }
+                        }
+                    }
+
+                } else if ($return->type === 'supplier') {
+                    // Supplier Return: Item leaves Warehouse
+                    $qtyToCut = $item->quantity;
+                    $stocks = ProductStock::query()
+                        ->where('product_id', $item->product_id)
+                        ->where('quantity', '>', 0)
+                        ->lockForUpdate()
+                        ->get();
+
+                    foreach ($stocks as $stock) {
+                        if ($qtyToCut <= 0) break;
+
+                        $cut = min((float) $stock->quantity, $qtyToCut);
+                        $stock->quantity = (float) $stock->quantity - $cut;
+                        $stock->save();
+
+                        StockMovement::query()->create([
+                            'product_id' => $item->product_id,
+                            'from_location_id' => $stock->location_id,
+                            'to_location_id' => null,
+                            'type' => 'out',
+                            'quantity' => $cut,
+                            'reference_type' => 'return',
+                            'reference_id' => $return->id,
+                            'reference_number' => $return->return_number,
+                            'notes' => 'Supplier Return Approved',
+                            'movement_at' => now(),
+                        ]);
+
+                        $qtyToCut -= $cut;
+                    }
+
+                    if ($return->purchase_order_id) {
+                        $payable = SupplierPayable::where('purchase_order_id', $return->purchase_order_id)->first();
+                        if ($payable) {
+                            $poItem = PurchaseOrderItem::where('purchase_order_id', $return->purchase_order_id)
+                                ->where('product_id', $item->product_id)
+                                ->first();
+                            if ($poItem) {
+                                $deduction = $item->quantity * $poItem->unit_price;
+                                $payable->amount = max(0, $payable->amount - $deduction);
+                                $payable->status = $payable->paid_amount >= $payable->amount ? 'paid' : 'open';
+                                $payable->save();
+                            }
+                        }
+                    }
+                }
+            }
+
+            return $return;
+        });
     }
 }

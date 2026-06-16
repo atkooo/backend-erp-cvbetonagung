@@ -190,6 +190,7 @@ class SalesController extends ApiResourceController
             'items.*.specification' => ['nullable', 'string'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.fulfillment_type' => ['nullable', 'string', 'in:take_away,delivery'],
             'handled_by' => ['nullable', 'string'],
         ]);
 

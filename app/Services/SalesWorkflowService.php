@@ -393,15 +393,13 @@ class SalesWorkflowService
 
             $customerId = $attributes['customer_id'];
 
-            $fulfillmentType = $attributes['fulfillment_type'] ?? 'take_away';
-            $isDelivery = $fulfillmentType === 'delivery';
-
-            // 1. Create Sales Order
+            // 1. Initial Sales Order
+            // Note: We will calculate status dynamically based on items below
             $salesOrder = SalesOrder::query()->create([
                 'customer_id' => $customerId,
                 'order_date' => $attributes['transaction_date'] ?? date('Y-m-d'),
                 'total' => 0,
-                'status' => $isDelivery ? 'pending_delivery' : 'completed',
+                'status' => 'completed', // Will update if there are deliveries/POs
                 'source' => 'pos',
                 'notes' => $attributes['notes'] ?? 'Transaksi POS',
             ]);
@@ -410,41 +408,111 @@ class SalesWorkflowService
             $salesOrder->forceFill(['total' => $subtotal])->save();
 
             // 2. Fulfillment Logic
-            $readyItems = [];
+            $readyTakeAwayItems = [];
+            $readyDeliveryItems = [];
             $poItems = [];
+
             foreach ($salesOrder->items as $index => $item) {
                 $product = \App\Models\Product::find($item->product_id);
+                $locationId = $items[$index]['location_id'] ?? null;
+                $itemFulfillment = $items[$index]['fulfillment_type'] ?? 'take_away';
+
                 if ($product && $product->is_customizable) {
                     $poItems[] = $item;
                 } else {
-                    $readyItems[] = ['item' => $item, 'location_id' => $items[$index]['location_id'] ?? null];
+                    $stock = ProductStock::query()
+                        ->where('product_id', $item->product_id)
+                        ->where('location_id', $locationId)
+                        ->lockForUpdate()
+                        ->first();
+
+                    $availableStock = $stock ? (float) $stock->quantity : 0;
+                    $requestedQuantity = (float) $item->quantity;
+
+                    if ($requestedQuantity <= $availableStock) {
+                        if ($itemFulfillment === 'delivery') {
+                            $readyDeliveryItems[] = ['item' => $item, 'location_id' => $locationId, 'quantity' => $requestedQuantity];
+                        } else {
+                            $readyTakeAwayItems[] = ['item' => $item, 'location_id' => $locationId, 'quantity' => $requestedQuantity];
+                        }
+                    } else {
+                        if ($availableStock > 0) {
+                            if ($itemFulfillment === 'delivery') {
+                                $readyDeliveryItems[] = ['item' => $item, 'location_id' => $locationId, 'quantity' => $availableStock];
+                            } else {
+                                $readyTakeAwayItems[] = ['item' => $item, 'location_id' => $locationId, 'quantity' => $availableStock];
+                            }
+                        }
+                        // Create a clone or pseudo-item for PO with remaining quantity
+                        $poItem = clone $item;
+                        $poItem->quantity = $requestedQuantity - $availableStock;
+                        $poItems[] = $poItem;
+                    }
                 }
             }
 
-            if ($isDelivery) {
-                // Buat DO untuk barang ready
-                if (!empty($readyItems)) {
-                    $deliveryOrderReady = DeliveryOrder::query()->create([
-                        'sales_order_id' => $salesOrder->id,
-                        'customer_id' => $customerId,
-                        'delivery_date' => $attributes['transaction_date'] ?? date('Y-m-d'),
-                        'status' => 'draft',
-                        'notes' => 'Otomatis dari POS (Barang Ready - Kirim ke Lokasi)',
-                    ]);
-                    foreach ($readyItems as $rItem) {
-                        $deliveryOrderReady->items()->create([
-                            'sales_order_item_id' => $rItem['item']->id,
-                            'product_id' => $rItem['item']->product_id,
-                            'quantity' => $rItem['item']->quantity,
+            // Update SO Status if any items are NOT taken away instantly
+            if (!empty($readyDeliveryItems) || !empty($poItems)) {
+                $salesOrder->status = 'pending_delivery';
+                $salesOrder->save();
+            }
+
+            // 2A. Instant Stock Deductions for Take Away Items
+                foreach ($readyTakeAwayItems as $rItem) {
+                    $item = $rItem['item'];
+                    $locationId = $rItem['location_id'];
+                    $qtyToCut = $rItem['quantity'];
+                    
+                    $stock = ProductStock::query()
+                        ->where('product_id', $item->product_id)
+                        ->where('location_id', $locationId)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($stock && $stock->quantity >= $qtyToCut) {
+                        $stock->quantity = (float) $stock->quantity - $qtyToCut;
+                        $stock->save();
+
+                        StockMovement::query()->create([
+                            'product_id' => $item->product_id,
+                            'from_location_id' => $locationId,
+                            'to_location_id' => null,
+                            'type' => 'out',
+                            'quantity' => $qtyToCut,
+                            'reference_type' => 'pos',
+                            'reference_id' => $salesOrder->id,
+                            'reference_number' => $salesOrder->order_number,
+                            'handled_by' => auth()->id() ?? $attributes['handled_by'] ?? null,
+                            'notes' => 'Transaksi POS (Take Away)',
+                            'movement_at' => now(),
                         ]);
                     }
                 }
-                // Buat DO untuk barang PO
+
+                // 2B. Delivery Orders for Delivered Ready Items
+                if (!empty($readyDeliveryItems)) {
+                    $deliveryOrderReady = DeliveryOrder::query()->create([
+                        'delivery_number' => 'DO-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -4)),
+                        'sales_order_id' => $salesOrder->id,
+                        'customer_id' => $salesOrder->customer_id,
+                        'status' => 'ready_to_load',
+                        'notes' => 'Otomatis dari POS (Barang Ready - Kirim ke Lokasi)',
+                    ]);
+                    foreach ($readyDeliveryItems as $rItem) {
+                        $deliveryOrderReady->items()->create([
+                            'sales_order_item_id' => $rItem['item']->id,
+                            'product_id' => $rItem['item']->product_id,
+                            'quantity' => $rItem['quantity'],
+                        ]);
+                    }
+                }
+
+                // 2C. Delivery Orders for PO/Backorder Items
                 if (!empty($poItems)) {
                     $deliveryOrderPO = DeliveryOrder::query()->create([
+                        'delivery_number' => 'DO-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -4)),
                         'sales_order_id' => $salesOrder->id,
-                        'customer_id' => $customerId,
-                        'delivery_date' => $attributes['transaction_date'] ?? date('Y-m-d'),
+                        'customer_id' => $salesOrder->customer_id,
                         'status' => 'draft',
                         'notes' => 'Otomatis dari POS (Barang PO/Inden - Kirim Menyusul)',
                     ]);
@@ -456,63 +524,6 @@ class SalesWorkflowService
                         ]);
                     }
                 }
-            } else {
-                // Take Away: Potong Stok Langsung untuk barang non-PO
-                foreach ($readyItems as $rItem) {
-                    $item = $rItem['item'];
-                    $locationId = $rItem['location_id'];
-                    
-                    $stock = ProductStock::query()
-                        ->where('product_id', $item->product_id)
-                        ->where('location_id', $locationId)
-                        ->lockForUpdate()
-                        ->first();
-
-                    abort_if($stock === null, 422, "Product stock record does not exist for product ID {$item->product_id} at the selected location.");
-                    abort_if((float) $stock->quantity < (float) $item->quantity, 422, "Insufficient stock for product ID {$item->product_id}.");
-
-                    $stock->quantity = (float) $stock->quantity - (float) $item->quantity;
-                    $stock->save();
-
-                    StockMovement::query()->create([
-                        'product_id' => $item->product_id,
-                        'from_location_id' => $locationId,
-                        'to_location_id' => null,
-                        'type' => 'out',
-                        'quantity' => $item->quantity,
-                        'reference_type' => 'pos',
-                        'reference_id' => $salesOrder->id,
-                        'reference_number' => $salesOrder->order_number,
-                        'handled_by' => auth()->id() ?? $attributes['handled_by'] ?? null,
-                        'notes' => 'Transaksi POS (Take Away)',
-                        'movement_at' => now(),
-                    ]);
-                }
-
-                if (!empty($poItems)) {
-                    // Buat DO untuk barang PO
-                    $deliveryOrder = DeliveryOrder::query()->create([
-                        'sales_order_id' => $salesOrder->id,
-                        'customer_id' => $customerId,
-                        'delivery_date' => $attributes['transaction_date'] ?? date('Y-m-d'),
-                        'status' => 'draft',
-                        'notes' => 'Otomatis dari POS (Barang PO - Kirim Menyusul)',
-                    ]);
-
-                    foreach ($poItems as $item) {
-                        $deliveryOrder->items()->create([
-                            'sales_order_item_id' => $item->id,
-                            'product_id' => $item->product_id,
-                            'quantity' => $item->quantity,
-                        ]);
-                    }
-
-                    // Update SO status to pending_delivery if it was completed
-                    if ($salesOrder->status === 'completed') {
-                        $salesOrder->forceFill(['status' => 'pending_delivery'])->save();
-                    }
-                }
-            }
 
             $amountPaid = isset($attributes['amount_paid']) ? (float) $attributes['amount_paid'] : (float) $subtotal;
             $invoiceStatus = $amountPaid >= (float) $subtotal ? 'paid' : 'partial';

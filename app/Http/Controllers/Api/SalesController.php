@@ -116,6 +116,18 @@ class SalesController extends ApiResourceController
             $config = $this->resourceConfig($resource);
             $model = $this->findResourceModel($config, $id);
 
+            // Validation for ready_to_load
+            if (($data['status'] ?? '') === 'ready_to_load' && $model->status !== 'ready_to_load') {
+                $model->load('items.product');
+                foreach ($model->items as $item) {
+                    $totalStock = \App\Models\ProductStock::where('product_id', $item->product_id)->sum('quantity');
+                    if ($totalStock < $item->quantity) {
+                        $productName = $item->product->name ?? 'Unknown';
+                        abort(422, "Stok tidak mencukupi untuk produk {$productName}. Dibutuhkan: {$item->quantity}, Tersedia: {$totalStock}. Silakan buat Work Order/Purchase Order terlebih dahulu.");
+                    }
+                }
+            }
+
             DB::transaction(function () use ($model, $data) {
                 $model->update($data);
 

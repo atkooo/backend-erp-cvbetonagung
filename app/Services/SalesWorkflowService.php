@@ -268,13 +268,26 @@ class SalesWorkflowService
                 $salesOrder->forceFill(['status' => 'processing'])->save();
             }
 
+            $targetStatus = $attributes['status'] ?? 'ready_to_load';
+
+            if ($targetStatus === 'ready_to_load') {
+                foreach ($salesOrder->items as $item) {
+                    $qtyNeeded = $item->piece_count ?? $item->quantity;
+                    $totalStock = \App\Models\ProductStock::where('product_id', $item->product_id)->sum('quantity');
+                    if ($totalStock < $qtyNeeded) {
+                        $productName = \App\Models\Product::find($item->product_id)->name ?? 'Unknown';
+                        abort(422, "Stok tidak mencukupi untuk produk {$productName}. Dibutuhkan: {$qtyNeeded}, Tersedia: {$totalStock}. Silakan buat Work Order/Purchase Order terlebih dahulu.");
+                    }
+                }
+            }
+
             $deliveryOrder = DeliveryOrder::query()->create([
                 'delivery_number' => $attributes['delivery_number'] ?? null,
                 'sales_order_id' => $salesOrder->id,
                 'customer_id' => $salesOrder->customer_id,
                 'delivery_date' => $attributes['delivery_date'] ?? null,
                 'receiver_name' => $attributes['receiver_name'] ?? null,
-                'status' => $attributes['status'] ?? 'ready_to_load',
+                'status' => $targetStatus,
                 'notes' => $attributes['notes'] ?? $salesOrder->notes,
             ]);
 

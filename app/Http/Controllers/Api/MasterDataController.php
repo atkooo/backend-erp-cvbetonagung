@@ -104,4 +104,19 @@ class MasterDataController extends ApiResourceController
     {
         return ['status'];
     }
+
+    protected function resourceQuery(array $config): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::resourceQuery($config);
+
+        if ($config['model'] === Product::class) {
+            $query->withSum(['salesOrderItems as booked_stock' => function ($query) {
+                $query->whereHas('salesOrder', function ($q) {
+                    $q->whereIn('status', ['approved', 'processing', 'pending_delivery']);
+                });
+            }], 'quantity');
+        }
+
+        return $query;
+    }
 }

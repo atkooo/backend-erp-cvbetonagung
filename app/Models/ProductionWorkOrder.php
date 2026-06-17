@@ -31,11 +31,10 @@ class ProductionWorkOrder extends Model
     {
         static::created(function (ProductionWorkOrder $workOrder) {
             $tasks = [
-                ['name' => 'Cetak', 'code_prefix' => 'TSK1'],
-                ['name' => 'Curing', 'code_prefix' => 'TSK2'],
-                ['name' => 'Finishing', 'code_prefix' => 'TSK3'],
-                ['name' => 'QC', 'code_prefix' => 'TSK4'],
-                ['name' => 'Siap Gudang', 'code_prefix' => 'TSK5'],
+                ['name' => 'Cetak & Curing', 'code_prefix' => 'TSK1'],
+                ['name' => 'Finishing', 'code_prefix' => 'TSK2'],
+                ['name' => 'QC', 'code_prefix' => 'TSK3'],
+                ['name' => 'Siap Gudang', 'code_prefix' => 'TSK4'],
             ];
 
             $seq = 1;

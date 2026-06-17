@@ -11,6 +11,7 @@ use App\Models\StorageLocation;
 use App\Models\Invoice;
 use App\Models\SalesOrderItem;
 use App\Models\PurchaseOrderItem;
+use App\Models\ReturnItem;
 use Illuminate\Support\Facades\DB;
 
 class PurchasingWorkflowService
@@ -231,6 +232,67 @@ class PurchasingWorkflowService
             }
 
             return $return;
+        });
+    }
+
+    public function claimToSupplier(string $id): ProductReturn
+    {
+        return DB::transaction(function () use ($id): ProductReturn {
+            $customerReturn = ProductReturn::query()->with('items')->findOrFail($id);
+
+            abort_if($customerReturn->type !== 'customer', 422, 'Only customer returns can be claimed to supplier.');
+            abort_if($customerReturn->qc_status === 'supplier_claim', 422, 'Return is already claimed to supplier.');
+
+            $poGroups = [];
+
+            foreach ($customerReturn->items as $item) {
+                // Find latest PO for this product
+                $po = PurchaseOrder::query()
+                    ->whereHas('items', function ($query) use ($item) {
+                        $query->where('product_id', $item->product_id);
+                    })
+                    ->latest('created_at')
+                    ->first();
+
+                if ($po) {
+                    if (!isset($poGroups[$po->id])) {
+                        $poGroups[$po->id] = [
+                            'supplier_id' => $po->supplier_id,
+                            'purchase_order_id' => $po->id,
+                            'items' => [],
+                        ];
+                    }
+                    $poGroups[$po->id]['items'][] = clone $item;
+                }
+            }
+
+            abort_if(empty($poGroups), 422, 'Tidak bisa diklaim. Seluruh barang merupakan produksi internal dan tidak memiliki histori Purchase Order.');
+
+            $customerReturn->qc_status = 'supplier_claim';
+            $customerReturn->save();
+
+            foreach ($poGroups as $poId => $group) {
+                $supplierReturn = ProductReturn::query()->create([
+                    'return_number' => 'RTN-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -4)),
+                    'type' => 'supplier',
+                    'supplier_id' => $group['supplier_id'],
+                    'purchase_order_id' => $group['purchase_order_id'],
+                    'reason' => 'Otomatis dibuat dari Klaim Pelanggan ' . $customerReturn->return_number,
+                    'qc_status' => 'pending_qc',
+                    'created_by' => auth()->id() ?? $customerReturn->created_by,
+                ]);
+
+                foreach ($group['items'] as $item) {
+                    ReturnItem::query()->create([
+                        'return_id' => $supplierReturn->id,
+                        'product_id' => $item->product_id,
+                        'quantity' => $item->quantity,
+                        'notes' => $item->notes,
+                    ]);
+                }
+            }
+
+            return $customerReturn;
         });
     }
 }

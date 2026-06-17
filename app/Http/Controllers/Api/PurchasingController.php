@@ -161,10 +161,15 @@ class PurchasingController extends ApiResourceController
 
     public function update(PurchasingRequest $request, string $resource, string $id): JsonResponse
     {
-        if ($resource === 'returns' && $request->has('qc_status') && $request->input('qc_status') === 'approved') {
+        if ($resource === 'returns' && $request->has('qc_status')) {
+            $status = $request->input('qc_status');
             $return = ProductReturn::findOrFail($id);
-            if ($return->qc_status !== 'approved') {
+            
+            if ($status === 'approved' && $return->qc_status !== 'approved') {
                 $updatedReturn = $this->purchasingWorkflow->approveReturn($id);
+                return response()->json(['data' => $updatedReturn->fresh($this->resources()['returns']['relations'] ?? [])]);
+            } elseif ($status === 'supplier_claim' && $return->qc_status !== 'supplier_claim') {
+                $updatedReturn = $this->purchasingWorkflow->claimToSupplier($id);
                 return response()->json(['data' => $updatedReturn->fresh($this->resources()['returns']['relations'] ?? [])]);
             }
         }

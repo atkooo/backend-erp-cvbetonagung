@@ -11,11 +11,11 @@ class SystemController extends Controller
     public function exportBackup()
     {
         try {
-            $database = env('DB_DATABASE');
-            $username = env('DB_USERNAME');
-            $password = env('DB_PASSWORD');
-            $host = env('DB_HOST', '127.0.0.1');
-            $port = env('DB_PORT', '3306');
+            $database = config('database.connections.mysql.database');
+            $username = config('database.connections.mysql.username');
+            $password = config('database.connections.mysql.password');
+            $host     = config('database.connections.mysql.host', '127.0.0.1');
+            $port     = config('database.connections.mysql.port', '3306');
             
             $filename = "cvba-backup-" . date('Y-m-d-H-i-s') . ".sql";
             $path = storage_path("app/" . $filename);

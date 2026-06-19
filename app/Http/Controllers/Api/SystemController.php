@@ -24,14 +24,17 @@ class SystemController extends Controller
             $dumpBinary = 'mysqldump';
             exec('mysqldump --version 2> nul', $out, $ret);
             if ($ret !== 0 && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-                // Cari manual di beberapa lokasi umum Windows
-                $possiblePaths = [
-                    'C:\\laragon\\bin\\mysql\\mysql-8.4.3-winx64\\bin\\mysqldump.exe',
-                    'C:\\xampp\\mysql\\bin\\mysqldump.exe',
+                            // Cari manual di beberapa lokasi umum Windows (tanpa hardcode versi MySQL)
+                $searchDirs = [
+                    'C:\\laragon\\bin\\mysql',
+                    'C:\\xampp\\mysql\\bin',
                 ];
-                foreach ($possiblePaths as $p) {
-                    if (file_exists($p)) {
-                        $dumpBinary = '"' . $p . '"';
+                foreach ($searchDirs as $dir) {
+                    if (!is_dir($dir)) continue;
+                    // Cari mysqldump.exe di subfolder manapun (misal: mysql-8.x.x-winx64/bin)
+                    $found = glob($dir . '\\*\\bin\\mysqldump.exe') ?: glob($dir . '\\mysqldump.exe');
+                    if (!empty($found)) {
+                        $dumpBinary = '"' . $found[0] . '"';
                         break;
                     }
                 }

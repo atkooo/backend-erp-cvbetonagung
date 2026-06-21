@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
     'business_unit',
@@ -23,11 +24,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'min_stock',
     'stock_status',
     'qr_value',
+    'image',
     'status',
 ])]
 class Product extends Model
 {
     use HasUuids, GeneratesDocumentNumber;
+
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if (!$this->image) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->image);
+    }
 
     public function documentNumberPrefix(): string
     {

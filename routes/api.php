@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\Inventory\InventoryQueryController;
 use App\Http\Controllers\Api\Master\MasterQueryController;
 use App\Http\Controllers\Api\MasterDataController;
+use App\Http\Controllers\Api\ProductImageController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProductionController;
 use App\Http\Controllers\Api\PurchasingController;
@@ -100,6 +101,10 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
                 Route::delete('/{id}', 'destroy')->whereUuid('id');
             });
     });
+
+    // Product image upload (multipart, separate from generic resource controller)
+    Route::post('master-data/products/{id}/image', [ProductImageController::class, 'upload'])->whereUuid('id');
+    Route::delete('master-data/products/{id}/image', [ProductImageController::class, 'destroy'])->whereUuid('id');
 
     Route::prefix('master-data/{resource}')
         ->whereIn('resource', [

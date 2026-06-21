@@ -114,6 +114,11 @@ class RequirePermission
         $apiModule = $segments[1] ?? null;
         $apiResource = $segments[2] ?? null;
 
+        // Handle product image endpoint: api/master-data/products/{id}/image
+        if ($apiModule === 'master-data' && $apiResource === 'products') {
+            return 'products';
+        }
+
         if ($apiModule === 'master') {
             return match ($apiResource) {
                 'customers' => 'customers',

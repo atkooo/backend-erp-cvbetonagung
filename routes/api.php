@@ -144,6 +144,8 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
                 'stock-opname-sessions',
                 'stock-opname-items',
                 'approval-requests',
+                'bags',
+                'bag-items',
             ])
             ->group(function () {
                 Route::get('/', 'index');

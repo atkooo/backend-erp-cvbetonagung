@@ -75,6 +75,17 @@ class InventoryRequest extends FormRequest
                 'decided_at' => [...$nullable, 'date'],
                 'decision_notes' => [...$nullable, 'string'],
             ],
+            'bags' => [
+                'date' => [...$required, 'date'],
+                'warehouse_id' => [...$required, 'uuid', Rule::exists('warehouses', 'id')],
+                'location_id' => [...$nullable, 'uuid', Rule::exists('storage_locations', 'id')],
+                'type' => [...$required, Rule::in(['in', 'out', 'adjustment'])],
+                'notes' => [...$nullable, 'string'],
+                'items' => [...$required, 'array', 'min:1'],
+                'items.*.product_id' => [...$required, 'uuid', Rule::exists('products', 'id')],
+                'items.*.quantity' => [...$required, 'numeric', 'gt:0'],
+                'items.*.notes' => [...$nullable, 'string'],
+            ],
             default => [],
         };
     }

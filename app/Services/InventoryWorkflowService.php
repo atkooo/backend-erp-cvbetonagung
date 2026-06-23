@@ -6,6 +6,8 @@ use App\Models\ProductStock;
 use App\Models\StockMovement;
 use App\Models\StockOpnameItem;
 use App\Models\StockOpnameSession;
+use App\Models\Bag;
+use App\Models\BagItem;
 use Illuminate\Support\Facades\DB;
 
 class InventoryWorkflowService
@@ -92,5 +94,61 @@ class InventoryWorkflowService
                 'closed_at' => now(),
             ])->save();
         }
+    }
+
+    public function processBag(array $attributes): Bag
+    {
+        return DB::transaction(function () use ($attributes): Bag {
+            $bag = Bag::create([
+                'date' => $attributes['date'] ?? now(),
+                'warehouse_id' => $attributes['warehouse_id'],
+                'location_id' => $attributes['location_id'] ?? null,
+                'type' => $attributes['type'],
+                'notes' => $attributes['notes'] ?? null,
+                'status' => 'Final',
+                'created_by' => $attributes['created_by'] ?? null,
+            ]);
+
+            $items = $attributes['items'] ?? [];
+            foreach ($items as $itemData) {
+                $bagItem = $bag->items()->create([
+                    'product_id' => $itemData['product_id'],
+                    'quantity' => $itemData['quantity'],
+                    'notes' => $itemData['notes'] ?? null,
+                ]);
+
+                $stock = ProductStock::query()->firstOrNew([
+                    'product_id' => $bagItem->product_id,
+                    'location_id' => $bag->location_id,
+                ]);
+
+                $qty = (float) $bagItem->quantity;
+
+                if ($bag->type === 'in') {
+                    $stock->quantity = ((float) $stock->quantity) + $qty;
+                } elseif ($bag->type === 'out') {
+                    $stock->quantity = ((float) $stock->quantity) - $qty;
+                } else {
+                    $stock->quantity = $qty; // adjustment is treated as absolute set
+                }
+                $stock->save();
+
+                StockMovement::query()->create([
+                    'product_id' => $bagItem->product_id,
+                    'from_location_id' => $bag->type === 'out' ? $bag->location_id : null,
+                    'to_location_id' => $bag->type === 'in' ? $bag->location_id : null,
+                    'type' => $bag->type,
+                    'quantity' => abs($qty),
+                    'reference_type' => 'bag',
+                    'reference_id' => $bag->id,
+                    'reference_number' => $bag->bag_number,
+                    'handled_by' => $bag->created_by,
+                    'notes' => $bagItem->notes ?? $bag->notes,
+                    'movement_at' => $bag->date,
+                ]);
+            }
+
+            return $bag;
+        });
     }
 }

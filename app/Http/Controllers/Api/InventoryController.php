@@ -9,6 +9,8 @@ use App\Models\ProductStock;
 use App\Models\StockMovement;
 use App\Models\StockOpnameItem;
 use App\Models\StockOpnameSession;
+use App\Models\Bag;
+use App\Models\BagItem;
 use App\Services\InventoryWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -52,6 +54,18 @@ class InventoryController extends ApiResourceController
             'sortable' => ['approval_number', 'request_type', 'status', 'requested_at', 'decided_at'],
             'relations' => ['requester', 'approver'],
         ],
+        'bags' => [
+            'model' => Bag::class,
+            'searchable' => ['bag_number', 'notes'],
+            'sortable' => ['bag_number', 'date', 'type', 'status', 'created_at'],
+            'relations' => ['warehouse', 'location', 'createdBy', 'items.product'],
+        ],
+        'bag-items' => [
+            'model' => BagItem::class,
+            'searchable' => ['notes'],
+            'sortable' => ['quantity'],
+            'relations' => ['bag', 'product'],
+        ],
     ];
 
     public function __construct(private readonly InventoryWorkflowService $inventoryWorkflow)
@@ -83,6 +97,13 @@ class InventoryController extends ApiResourceController
             $model->load($config['relations'] ?? []);
 
             return response()->json(['data' => $model], 201);
+        }
+
+        if ($resource === 'bags') {
+            $bag = $this->inventoryWorkflow->processBag($request->validated());
+            return response()->json([
+                'data' => $bag->fresh($config['relations'] ?? []),
+            ], 201);
         }
 
         return $this->storeResource($resource, $request->validated());

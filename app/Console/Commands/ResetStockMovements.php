@@ -23,21 +23,19 @@ class ResetStockMovements extends Command
      *
      * @var string
      */
-    protected $description = 'Kosongkan tabel stock_movements dan buat Saldo Awal berdasarkan product_stocks saat ini';
+    protected $description = 'Kosongkan tabel stock_movements dan buat Stock Awal berdasarkan product_stocks saat ini';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        if (!$this->confirm('Apakah Anda yakin ingin menghapus semua data mutasi stok dan meresetnya menjadi Saldo Awal?')) {
+        if (!$this->confirm('Apakah Anda yakin ingin menghapus semua data mutasi stok dan meresetnya menjadi Stock Awal?')) {
             $this->info('Operasi dibatalkan.');
             return;
         }
 
         $this->info('Memulai reset mutasi stok...');
-
-        DB::beginTransaction();
 
         try {
             // 1. Truncate tabel stock_movements
@@ -46,6 +44,9 @@ class ResetStockMovements extends Command
             DB::statement('SET FOREIGN_KEY_CHECKS=0;');
             StockMovement::truncate();
             DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
+            // Mulai transaction SETELAH truncate, karena Truncate (DDL) melakukan implicit commit
+            DB::beginTransaction();
 
             // 2. Ambil semua stok produk yang bernilai > 0
             $stocks = ProductStock::where('quantity', '>', 0)->get();
@@ -60,19 +61,19 @@ class ResetStockMovements extends Command
                     'product_id' => $stock->product_id,
                     'from_location_id' => null,
                     'to_location_id' => $stock->location_id,
-                    'type' => 'in', // Tipe masuk untuk saldo awal
+                    'type' => 'in', // Tipe masuk untuk Stock awal
                     'quantity' => $stock->quantity,
                     'reference_type' => null,
                     'reference_id' => null,
-                    'reference_number' => 'SALDO-AWAL',
+                    'reference_number' => 'STOCK-AWAL',
                     'handled_by' => null, 
-                    'notes' => 'Saldo Awal Sistem',
+                    'notes' => 'Stok Awal Sistem',
                     'movement_at' => $now,
                 ];
             }
 
             // 3. Insert dalam bentuk chunk untuk efisiensi
-            $this->info('Memasukkan data Saldo Awal...');
+            $this->info('Memasukkan data Stock Awal...');
             $chunks = array_chunk($movements, 500);
             foreach ($chunks as $chunk) {
                 StockMovement::insert($chunk);
@@ -80,7 +81,7 @@ class ResetStockMovements extends Command
 
             DB::commit();
 
-            $this->info('Berhasil mereset riwayat mutasi dan membuat Saldo Awal baru!');
+            $this->info('Berhasil mereset riwayat mutasi dan membuat Stock Awal baru!');
         } catch (\Exception $e) {
             DB::rollBack();
             $this->error('Terjadi kesalahan: ' . $e->getMessage());

@@ -273,7 +273,7 @@ class SalesWorkflowService
             if ($targetStatus === 'ready_to_load') {
                 foreach ($salesOrder->items as $item) {
                     $qtyNeeded = $item->piece_count ?? $item->quantity;
-                    $totalStock = \App\Models\ProductStock::where('product_id', $item->product_id)->sum('quantity');
+                    $totalStock = \App\Models\ProductStock::where('product_id', $item->product_id)->lockForUpdate()->sum('quantity');
                     if ($totalStock < $qtyNeeded) {
                         $productName = \App\Models\Product::find($item->product_id)->name ?? 'Unknown';
                         abort(422, "Stok tidak mencukupi untuk produk {$productName}. Dibutuhkan: {$qtyNeeded}, Tersedia: {$totalStock}. Silakan buat Work Order/Purchase Order terlebih dahulu.");
@@ -435,6 +435,7 @@ class SalesWorkflowService
                 } else {
                     $availableStock = (float) ProductStock::query()
                         ->where('product_id', $item->product_id)
+                        ->lockForUpdate()
                         ->sum('quantity');
 
                     $requestedQuantity = (float) $item->quantity;

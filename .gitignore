@@ -25,3 +25,7 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Local development commands
+/app/Console/Commands/ResetStockMovements.php
+/app/Console/Commands/ReconcileInventory.php

@@ -39,7 +39,7 @@ trait GeneratesDocumentNumber
             : 'document_number';
 
         $datePrefix = date('Ym'); // e.g., 202606
-        $searchPrefix = "{$prefix}-{$datePrefix}-";
+        $searchPrefix = "{$prefix}{$datePrefix}";
 
         // Find the latest document number matching the prefix
         $latestDoc = DB::table($model->getTable())

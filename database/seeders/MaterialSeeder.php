@@ -65,7 +65,7 @@ class MaterialSeeder extends Seeder
             $minStock = (int)str_replace(['.', ','], '', $minStockStr);
 
             if (empty($sku)) {
-                $sku = 'MAT-' . str_pad($skuCounter++, 4, '0', STR_PAD_LEFT);
+                $sku = 'MAT' . str_pad($skuCounter++, 4, '0', STR_PAD_LEFT);
             }
 
             // Ensure unit exists

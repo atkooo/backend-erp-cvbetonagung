@@ -35,7 +35,7 @@ class CustomerSeeder extends Seeder
 
             $code = trim($data[0]);
             if (empty($code)) {
-                $code = 'CUST-' . str_pad($counter++, 4, '0', STR_PAD_LEFT);
+                $code = 'CUST' . str_pad($counter++, 4, '0', STR_PAD_LEFT);
             }
             
             $address = trim($data[2]);

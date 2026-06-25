@@ -94,7 +94,7 @@ class ProductSeeder extends Seeder
             $minStock = (int)trim($data[8]);
             
             if (empty($sku)) {
-                $sku = 'PRD-' . str_pad($skuCounter++, 4, '0', STR_PAD_LEFT);
+                $sku = 'PRD' . str_pad($skuCounter++, 4, '0', STR_PAD_LEFT);
             }
 
             // Ensure category exists

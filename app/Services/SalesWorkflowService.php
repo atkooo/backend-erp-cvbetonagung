@@ -43,6 +43,9 @@ class SalesWorkflowService
                 'order_date' => $attributes['order_date'] ?? date('Y-m-d'),
                 'total' => $quotation->total,
                 'status' => $attributes['status'] ?? 'processing',
+                'global_discount_type' => $quotation->global_discount_type,
+                'global_discount_value' => $quotation->global_discount_value,
+                'global_discount_amount' => $quotation->global_discount_amount,
                 'notes' => $attributes['notes'] ?? $quotation->notes,
             ]);
 
@@ -56,6 +59,7 @@ class SalesWorkflowService
                     'specification' => $item->specification,
                     'quantity' => $item->quantity,
                     'unit_price' => $item->unit_price,
+                    'discount_amount' => $item->discount_amount,
                     'subtotal' => $item->subtotal,
                 ]);
             }
@@ -201,6 +205,7 @@ class SalesWorkflowService
                             'specification' => $qItem->specification,
                             'quantity' => $qItem->quantity,
                             'unit_price' => $qItem->unit_price,
+                            'discount_amount' => $qItem->discount_amount,
                             'subtotal' => $qItem->subtotal,
                         ]);
                         $subtotal += $qItem->subtotal;
@@ -372,7 +377,8 @@ class SalesWorkflowService
         $subtotal = 0.0;
 
         foreach ($items as $itemData) {
-            $itemSubtotal = (float) ($itemData['quantity'] ?? 0) * (float) ($itemData['unit_price'] ?? 0);
+            $discountAmount = (float) ($itemData['discount_amount'] ?? 0);
+            $itemSubtotal = ((float) ($itemData['quantity'] ?? 0) * (float) ($itemData['unit_price'] ?? 0)) - $discountAmount;
             $subtotal += $itemSubtotal;
 
             $parent->items()->create([
@@ -383,6 +389,7 @@ class SalesWorkflowService
                 'specification' => $itemData['specification'] ?? null,
                 'quantity' => $itemData['quantity'],
                 'unit_price' => $itemData['unit_price'],
+                'discount_amount' => $itemData['discount_amount'] ?? 0,
                 'subtotal' => $itemSubtotal,
             ]);
         }
@@ -406,6 +413,10 @@ class SalesWorkflowService
 
             $customerId = $attributes['customer_id'];
 
+            $globalDiscountType = $attributes['global_discount_type'] ?? null;
+            $globalDiscountValue = $attributes['global_discount_value'] ?? null;
+            $globalDiscountAmount = $attributes['global_discount_amount'] ?? 0;
+
             // 1. Initial Sales Order
             // Note: We will calculate status dynamically based on items below
             $salesOrder = SalesOrder::query()->create([
@@ -415,10 +426,17 @@ class SalesWorkflowService
                 'status' => 'completed', // Will update if there are deliveries/POs
                 'source' => 'pos',
                 'notes' => $attributes['notes'] ?? 'Transaksi POS',
+                'global_discount_type' => $globalDiscountType,
+                'global_discount_value' => $globalDiscountValue,
+                'global_discount_amount' => $globalDiscountAmount,
             ]);
 
             [$subtotal] = $this->createLineItems($salesOrder, 'sales-order', $items);
-            $salesOrder->forceFill(['total' => $subtotal])->save();
+            
+            // Adjust final total with global discount
+            $finalTotal = max(0, $subtotal - $globalDiscountAmount);
+
+            $salesOrder->forceFill(['total' => $finalTotal])->save();
 
             // 2. Fulfillment Logic
             $readyTakeAwayItems = [];

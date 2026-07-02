@@ -21,6 +21,7 @@ class MasterDataController extends ApiResourceController
     /**
      * @var array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
      */
+    
     private const RESOURCES = [
         'customers' => [
             'model' => Customer::class,

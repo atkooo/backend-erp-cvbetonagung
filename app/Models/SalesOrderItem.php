@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'specification',
     'quantity',
     'unit_price',
+    'discount_amount',
     'subtotal',
 ])]
 class SalesOrderItem extends Model
@@ -36,6 +37,11 @@ class SalesOrderItem extends Model
         return $this->belongsTo(Product::class);
     }
 
+    public function discount(): BelongsTo
+    {
+        return $this->belongsTo(Discount::class);
+    }
+
     public function deliveryOrderItems(): HasMany
     {
         return $this->hasMany(DeliveryOrderItem::class);
@@ -48,6 +54,7 @@ class SalesOrderItem extends Model
             'piece_count' => 'decimal:2',
             'length' => 'decimal:2',
             'unit_price' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
             'subtotal' => 'decimal:2',
         ];
     }

@@ -202,8 +202,12 @@ class SalesController extends ApiResourceController
             'items.*.specification' => ['nullable', 'string'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
             'items.*.fulfillment_type' => ['nullable', 'string', 'in:take_away,delivery'],
             'handled_by' => ['nullable', 'string'],
+            'global_discount_type' => ['nullable', 'string', 'in:percentage,nominal'],
+            'global_discount_value' => ['nullable', 'numeric', 'min:0'],
+            'global_discount_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $salesOrder = $service->processPOS($validated);

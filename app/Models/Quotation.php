@@ -19,6 +19,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'tax_amount',
     'total',
     'status',
+    'global_discount_type',
+    'global_discount_value',
+    'global_discount_amount',
     'notes',
 ])]
 class Quotation extends Model

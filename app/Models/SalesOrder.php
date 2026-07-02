@@ -18,6 +18,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'status',
     'source',
     'notes',
+    'global_discount_type',
+    'global_discount_value',
+    'global_discount_amount',
 ])]
 class SalesOrder extends Model
 {

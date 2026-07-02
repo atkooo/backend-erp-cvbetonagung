@@ -96,6 +96,12 @@ class MasterDataRequest extends FormRequest
                 'backup_schedule' => [...$nullable, 'string', 'max:255'],
                 'updated_by' => [...$nullable, 'uuid', Rule::exists('users', 'id')],
             ],
+            'discounts' => [
+                'name' => [...$required, 'string', 'max:255'],
+                'type' => [...$required, 'string', Rule::in(['percentage', 'nominal'])],
+                'value' => [...$required, 'numeric', 'min:0'],
+                'is_active' => ['sometimes', 'boolean'],
+            ],
             default => [],
         };
     }

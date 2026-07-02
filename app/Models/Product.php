@@ -26,6 +26,8 @@ use Illuminate\Support\Facades\Storage;
     'qr_value',
     'image',
     'status',
+    'discount_type',
+    'discount_value',
 ])]
 class Product extends Model
 {
@@ -133,6 +135,7 @@ class Product extends Model
             'cost_price' => 'decimal:2',
             'selling_price' => 'decimal:2',
             'min_stock' => 'decimal:2',
+            'discount_value' => 'decimal:2',
         ];
     }
 }

@@ -35,6 +35,9 @@ class SalesRequest extends FormRequest
                 'status' => ['sometimes', Rule::in(['draft', 'sent', 'approved', 'rejected'])],
                 'notes' => [...$nullable, 'string'],
                 'items' => ['sometimes', 'array', 'min:1'],
+                'global_discount_type' => ['sometimes', Rule::in(['percentage', 'nominal']), 'nullable'],
+                'global_discount_value' => ['sometimes', 'numeric', 'min:0', 'nullable'],
+                'global_discount_amount' => ['sometimes', 'numeric', 'min:0'],
                 'items.*.product_id' => [...$required, 'uuid', Rule::exists('products', 'id')],
                 'items.*.description' => [...$nullable, 'string', 'max:255'],
                 'items.*.piece_count' => [...$nullable, 'numeric', 'gt:0'],
@@ -42,6 +45,7 @@ class SalesRequest extends FormRequest
                 'items.*.specification' => [...$nullable, 'string', 'max:255'],
                 'items.*.quantity' => [...$required, 'numeric', 'gt:0'],
                 'items.*.unit_price' => [...$required, 'numeric', 'min:0'],
+                'items.*.discount_amount' => ['sometimes', 'numeric', 'min:0'],
             ],
             'quotation-items' => [
                 'quotation_id' => [...$required, 'uuid', Rule::exists('quotations', 'id')],
@@ -52,6 +56,7 @@ class SalesRequest extends FormRequest
                 'specification' => [...$nullable, 'string', 'max:255'],
                 'quantity' => [...$required, 'numeric', 'gt:0'],
                 'unit_price' => [...$required, 'numeric', 'min:0'],
+                'discount_amount' => ['sometimes', 'numeric', 'min:0'],
                 'subtotal' => [...$required, 'numeric', 'min:0'],
             ],
             'sales-orders' => [
@@ -63,6 +68,9 @@ class SalesRequest extends FormRequest
                 'status' => ['sometimes', Rule::in(['draft', 'processing', 'approved', 'completed', 'cancelled'])],
                 'notes' => [...$nullable, 'string'],
                 'items' => ['sometimes', 'array', 'min:1'],
+                'global_discount_type' => ['sometimes', Rule::in(['percentage', 'nominal']), 'nullable'],
+                'global_discount_value' => ['sometimes', 'numeric', 'min:0', 'nullable'],
+                'global_discount_amount' => ['sometimes', 'numeric', 'min:0'],
                 'items.*.product_id' => [...$required, 'uuid', Rule::exists('products', 'id')],
                 'items.*.description' => [...$nullable, 'string', 'max:255'],
                 'items.*.piece_count' => [...$nullable, 'numeric', 'gt:0'],
@@ -70,6 +78,7 @@ class SalesRequest extends FormRequest
                 'items.*.specification' => [...$nullable, 'string', 'max:255'],
                 'items.*.quantity' => [...$required, 'numeric', 'gt:0'],
                 'items.*.unit_price' => [...$required, 'numeric', 'min:0'],
+                'items.*.discount_amount' => ['sometimes', 'numeric', 'min:0'],
             ],
             'sales-order-items' => [
                 'sales_order_id' => [...$required, 'uuid', Rule::exists('sales_orders', 'id')],
@@ -80,6 +89,7 @@ class SalesRequest extends FormRequest
                 'specification' => [...$nullable, 'string', 'max:255'],
                 'quantity' => [...$required, 'numeric', 'gt:0'],
                 'unit_price' => [...$required, 'numeric', 'min:0'],
+                'discount_amount' => ['sometimes', 'numeric', 'min:0'],
                 'subtotal' => [...$required, 'numeric', 'min:0'],
             ],
             'delivery-orders' => [

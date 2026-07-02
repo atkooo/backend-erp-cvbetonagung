@@ -11,10 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('sales_order_items', function (Blueprint $table) {
-            $table->dropForeign(['discount_id']);
-            $table->dropColumn('discount_id');
-        });
+        if (Schema::hasColumn('sales_order_items', 'discount_id')) {
+            try {
+                Schema::table('sales_order_items', function (Blueprint $table) {
+                    $table->dropForeign(['discount_id']);
+                });
+            } catch (\Exception $e) {
+                // Abaikan jika foreign key sudah tidak ada
+            }
+
+            Schema::table('sales_order_items', function (Blueprint $table) {
+                $table->dropColumn('discount_id');
+            });
+        }
 
         Schema::dropIfExists('discounts');
     }

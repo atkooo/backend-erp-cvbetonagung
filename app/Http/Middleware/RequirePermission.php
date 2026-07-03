@@ -26,6 +26,7 @@ class RequirePermission
         'warehouses' => 'inventory',
         'storage-locations' => 'inventory',
         'products' => 'products',
+        'discounts' => 'products',
         'company-settings' => 'settings',
         'product-stocks' => 'inventory',
         'stock-movements' => 'inventory',

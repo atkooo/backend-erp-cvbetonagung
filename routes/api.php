@@ -116,6 +116,7 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
             'storage-locations',
             'products',
             'company-settings',
+            'discounts',
         ])
         ->controller(MasterDataController::class)
         ->group(function () {

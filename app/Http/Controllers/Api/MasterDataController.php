@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\Api\MasterDataRequest;
 use App\Models\CompanySetting;
 use App\Models\Customer;
+use App\Models\Discount;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\StorageLocation;
@@ -58,13 +59,18 @@ class MasterDataController extends ApiResourceController
             'model' => Product::class,
             'searchable' => ['sku', 'name', 'qr_value'],
             'sortable' => ['sku', 'name', 'stock_status', 'status', 'created_at'],
-            'relations' => ['category', 'unit'],
+            'relations' => ['category', 'unit', 'discount'],
         ],
         'company-settings' => [
             'model' => CompanySetting::class,
             'searchable' => ['company_name', 'operational_email', 'contact_phone'],
             'sortable' => ['company_name', 'updated_at'],
             'relations' => ['updatedBy'],
+        ],
+        'discounts' => [
+            'model' => Discount::class,
+            'searchable' => ['name', 'type'],
+            'sortable' => ['name', 'type', 'is_active', 'created_at'],
         ],
     ];
 

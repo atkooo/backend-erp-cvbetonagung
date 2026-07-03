@@ -86,6 +86,7 @@ class MasterDataRequest extends FormRequest
                 'stock_status' => ['sometimes', Rule::in(['safe', 'low', 'empty'])],
                 'qr_value' => [...$nullable, 'string', 'max:255', Rule::unique('products', 'qr_value')->ignore($id)],
                 'status' => ['sometimes', Rule::in(['active', 'inactive'])],
+                'discount_id' => [...$nullable, 'uuid', Rule::exists('discounts', 'id')],
             ],
             'company-settings' => [
                 'company_name' => [...$required, 'string', 'max:255'],

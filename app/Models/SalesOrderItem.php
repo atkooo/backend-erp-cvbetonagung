@@ -37,11 +37,6 @@ class SalesOrderItem extends Model
         return $this->belongsTo(Product::class);
     }
 
-    public function discount(): BelongsTo
-    {
-        return $this->belongsTo(Discount::class);
-    }
-
     public function deliveryOrderItems(): HasMany
     {
         return $this->hasMany(DeliveryOrderItem::class);

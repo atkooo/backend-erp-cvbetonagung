@@ -25,7 +25,7 @@ class MasterQueryController extends Controller
     {
         return response()->json([
             'data' => Product::query()
-                ->with(['category', 'unit'])
+                ->with(['category', 'unit', 'discount'])
                 ->orderBy('sku')
                 ->get(),
         ]);

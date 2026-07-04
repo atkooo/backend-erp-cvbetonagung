@@ -111,7 +111,6 @@ class InventoryController extends ApiResourceController
 
     public function show(string $resource, string $id): JsonResponse
     {
-        $this->resourceConfig($resource);
         abort_if($resource === 'product-stocks', 404);
 
         return $this->showResource($resource, $id);
@@ -126,7 +125,6 @@ class InventoryController extends ApiResourceController
 
     public function update(InventoryRequest $request, string $resource, string $id): JsonResponse
     {
-        $this->resourceConfig($resource);
         abort_if($resource === 'product-stocks', 404);
 
         return $this->updateResource($resource, $id, $request->validated());
@@ -144,7 +142,6 @@ class InventoryController extends ApiResourceController
 
     public function destroy(string $resource, string $id): JsonResponse|Response
     {
-        $this->resourceConfig($resource);
         abort_if($resource === 'product-stocks', 404);
 
         return $this->destroyResource($resource, $id);

@@ -30,7 +30,7 @@ class ProductionWorkflowService
             // Recalculate progress based on target_qty
             if ((float) $workOrder->target_qty > 0) {
                 $progress = round(($workOrder->completed_qty / (float) $workOrder->target_qty) * 100);
-                $workOrder->progress = $progress > 100 ? 100 : (int) $progress;
+                $workOrder->progress = min(100, (int) $progress);
             }
 
             $workOrder->save();

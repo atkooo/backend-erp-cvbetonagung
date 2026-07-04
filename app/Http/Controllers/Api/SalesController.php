@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\DeliveryOrderStatus;
-use App\Enums\SalesOrderStatus;
 use App\Http\Requests\Api\ApproveQuotationRequest;
 use App\Http\Requests\Api\ApproveSalesOrderRequest;
 use App\Http\Requests\Api\CreateDeliveryOrderRequest;
@@ -14,7 +12,6 @@ use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
-use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Services\SalesWorkflowService;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,7 +19,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
 
 class SalesController extends ApiResourceController
 {
@@ -123,28 +119,9 @@ class SalesController extends ApiResourceController
 
         if ($resource === 'delivery-orders') {
             $config = $this->resourceConfig($resource);
-            $model = $this->findResourceModel($config, $id);
+            $deliveryOrder = $service->updateDeliveryOrder($id, $data);
 
-            // Validation for ready_to_load
-            if (($data['status'] ?? '') === DeliveryOrderStatus::ReadyToLoad->value && $model->status !== DeliveryOrderStatus::ReadyToLoad->value) {
-                $model->load('items.product');
-                foreach ($model->items as $item) {
-                    $service->checkProductStock($item->product_id, $item->quantity);
-                }
-            }
-
-            DB::transaction(function () use ($model, $data) {
-                $model->update($data);
-
-                if (($data['status'] ?? '') === DeliveryOrderStatus::Received->value && $model->sales_order_id) {
-                    $salesOrder = SalesOrder::query()->find($model->sales_order_id);
-                    if ($salesOrder) {
-                        $salesOrder->forceFill(['status' => SalesOrderStatus::Completed->value])->save();
-                    }
-                }
-            });
-
-            return (new JsonResource($model->fresh($config['relations'] ?? [])))->response();
+            return (new JsonResource($deliveryOrder->fresh($config['relations'] ?? [])))->response();
         }
 
         return $this->updateResource($resource, $id, $data);

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Api\HrdRequest;
+use App\Http\Requests\Api\ScanAttendanceRequest;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\EmployeeDetail;
@@ -11,7 +12,6 @@ use App\Models\Leave;
 use App\Models\LeaveType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class HrdController extends ApiResourceController
@@ -52,6 +52,10 @@ class HrdController extends ApiResourceController
         ],
     ];
 
+    private const VALID_OFFICE_QR = 'QR-OFFICE-MAIN-1';
+
+    private const SHIFT_START = '08:00:00';
+
     /**
      * @return array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
      */
@@ -60,19 +64,11 @@ class HrdController extends ApiResourceController
         return self::RESOURCES;
     }
 
-    public function scanAttendance(Request $request): JsonResponse
+    public function scanAttendance(ScanAttendanceRequest $request): JsonResponse
     {
-        // Simulate auth by requiring employee_id, and expecting a location QR code
-        $request->validate([
-            'employee_id' => 'required|exists:employees,id',
-            'location_qr' => 'required|string',
-        ]);
-
         $employee = Employee::find($request->employee_id);
-        $locationQr = $request->location_qr;
 
-        // In a real app, you would validate if $locationQr is a valid office QR.
-        if ($locationQr !== 'QR-OFFICE-MAIN-1') {
+        if ($request->location_qr !== self::VALID_OFFICE_QR) {
             return response()->json(['message' => 'QR Code lokasi tidak valid atau kadaluarsa.'], 400);
         }
 
@@ -84,10 +80,9 @@ class HrdController extends ApiResourceController
             ->first();
 
         if (! $attendance) {
-            $shiftStart = '08:00:00';
             $lateMinutes = 0;
-            if ($currentTime > $shiftStart) {
-                $lateMinutes = now()->diffInMinutes($today.' '.$shiftStart);
+            if ($currentTime > self::SHIFT_START) {
+                $lateMinutes = now()->diffInMinutes($today.' '.self::SHIFT_START);
             }
 
             $attendance = Attendance::create([

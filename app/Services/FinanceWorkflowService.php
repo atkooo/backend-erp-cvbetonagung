@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\CashTransaction;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\SalesOrder;
 use App\Models\SupplierPayable;
 use Illuminate\Support\Facades\DB;
 
@@ -86,7 +87,7 @@ class FinanceWorkflowService
 
             $payable->forceFill([
                 'paid_amount' => $newPaidAmount,
-                'status' => $this->payableStatusFor($newPaidAmount, (float) $payable->amount),
+                'status' => SupplierPayable::resolveStatus($newPaidAmount, (float) $payable->amount),
             ])->save();
 
             if (! empty($attributes['account_id'])) {
@@ -105,17 +106,119 @@ class FinanceWorkflowService
         });
     }
 
-    private function payableStatusFor(float $paidAmount, float $amount): string
+    /**
+     * Buat Invoice baru beserta item-itemnya.
+     * Jika ada sales_order_id dan tidak ada items eksplisit, copy dari SO items.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function createInvoice(array $attributes): Invoice
     {
-        if ($paidAmount <= 0) {
-            return 'open';
-        }
+        return DB::transaction(function () use ($attributes): Invoice {
+            $hasItems = array_key_exists('items', $attributes);
+            $items = $attributes['items'] ?? [];
+            unset($attributes['items']);
 
-        if ($paidAmount < $amount) {
-            return 'partial';
-        }
+            $invoice = Invoice::query()->create($attributes);
 
-        return 'paid';
+            if (! empty($attributes['sales_order_id']) && (! $hasItems || empty($items))) {
+                $salesOrder = SalesOrder::query()->with('items')->find($attributes['sales_order_id']);
+                if ($salesOrder) {
+                    $subtotal = 0;
+                    foreach ($salesOrder->items as $soItem) {
+                        $invoice->items()->create([
+                            'product_id' => $soItem->product_id,
+                            'description' => $soItem->description,
+                            'piece_count' => $soItem->piece_count,
+                            'length' => $soItem->length,
+                            'quantity' => $soItem->quantity,
+                            'unit_price' => $soItem->unit_price,
+                            'subtotal' => $soItem->subtotal,
+                        ]);
+                        $subtotal += $soItem->subtotal;
+                    }
+                    $taxAmount = $attributes['tax_amount'] ?? 0;
+                    $invoice->forceFill([
+                        'subtotal' => $subtotal,
+                        'tax_amount' => $taxAmount,
+                        'total' => $subtotal + $taxAmount,
+                    ])->save();
+
+                    return $invoice;
+                }
+            }
+
+            if ($hasItems && ! empty($items)) {
+                $subtotal = 0;
+                foreach ($items as $itemData) {
+                    $itemSubtotal = (float) ($itemData['quantity'] ?? 0) * (float) ($itemData['unit_price'] ?? 0);
+                    $subtotal += $itemSubtotal;
+                    $invoice->items()->create([
+                        'product_id' => $itemData['product_id'],
+                        'description' => $itemData['description'] ?? null,
+                        'piece_count' => $itemData['piece_count'] ?? null,
+                        'length' => $itemData['length'] ?? null,
+                        'quantity' => $itemData['quantity'],
+                        'unit_price' => $itemData['unit_price'],
+                        'subtotal' => $itemSubtotal,
+                    ]);
+                }
+                $taxAmount = $attributes['tax_amount'] ?? 0;
+                $invoice->forceFill([
+                    'subtotal' => $subtotal,
+                    'tax_amount' => $taxAmount,
+                    'total' => $subtotal + $taxAmount,
+                ])->save();
+            }
+
+            return $invoice;
+        });
+    }
+
+    /**
+     * Update Invoice dan sinkronisasi item-itemnya.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function updateInvoice(string $id, array $attributes): Invoice
+    {
+        return DB::transaction(function () use ($id, $attributes): Invoice {
+            $invoice = Invoice::query()->whereKey($id)->firstOrFail();
+
+            $hasItems = array_key_exists('items', $attributes);
+            $items = $attributes['items'] ?? null;
+            unset($attributes['items']);
+
+            $invoice->fill($attributes)->save();
+
+            if ($hasItems && $items !== null) {
+                $invoice->items()->delete();
+
+                $subtotal = 0;
+                foreach ($items as $itemData) {
+                    $itemSubtotal = (float) ($itemData['quantity'] ?? 0) * (float) ($itemData['unit_price'] ?? 0);
+                    $subtotal += $itemSubtotal;
+                    $invoice->items()->create([
+                        'product_id' => $itemData['product_id'],
+                        'description' => $itemData['description'] ?? null,
+                        'piece_count' => $itemData['piece_count'] ?? null,
+                        'length' => $itemData['length'] ?? null,
+                        'quantity' => $itemData['quantity'],
+                        'unit_price' => $itemData['unit_price'],
+                        'subtotal' => $itemSubtotal,
+                    ]);
+                }
+
+                $taxAmount = $attributes['tax_amount'] ?? $invoice->tax_amount ?? 0;
+                $invoice->forceFill([
+                    'subtotal' => $subtotal,
+                    'tax_amount' => $taxAmount,
+                    'total' => $subtotal + $taxAmount,
+                ])->save();
+            }
+
+            return $invoice;
+        });
     }
 
     private function invoiceStatusFor(float $paidAmount, float $total): string

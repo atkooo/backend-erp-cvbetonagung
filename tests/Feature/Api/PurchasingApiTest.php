@@ -178,7 +178,7 @@ class PurchasingApiTest extends TestCase
         $this->assertSame($admin->id, $movement->handled_by);
     }
 
-    public function test_goods_receipts_frontend_endpoint_can_create_manual_grn_and_stock_movement(): void
+    public function test_goods_receipt_notes_endpoint_can_create_manual_grn_and_stock_movement(): void
     {
         $this->seed();
 
@@ -194,7 +194,7 @@ class PurchasingApiTest extends TestCase
             ['quantity' => 0],
         );
 
-        $response = $this->postJson('/api/purchasing/goods-receipts', [
+        $response = $this->postJson('/api/purchasing/goods-receipt-notes', [
             'purchase_order_id' => null,
             'to_location_id' => $location->id,
             'received_by' => $admin->id,
@@ -223,7 +223,7 @@ class PurchasingApiTest extends TestCase
 
         $grnNumber = $response->json('data.grn_number');
 
-        $this->getJson('/api/purchasing/goods-receipts?q='.$grnNumber)
+        $this->getJson('/api/purchasing/goods-receipt-notes?q='.$grnNumber)
             ->assertOk()
             ->assertJsonPath('meta.total', 1);
 

@@ -30,6 +30,18 @@ class SupplierPayable extends Model
         return $this->belongsTo(Supplier::class);
     }
 
+    /**
+     * Hitung status payable berdasarkan jumlah yang sudah dibayar.
+     */
+    public static function resolveStatus(float $paidAmount, float $amount): string
+    {
+        if ($paidAmount <= 0) {
+            return 'open';
+        }
+
+        return $paidAmount >= $amount ? 'paid' : 'partial';
+    }
+
     protected function casts(): array
     {
         return [

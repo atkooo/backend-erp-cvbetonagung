@@ -85,7 +85,7 @@ class PurchasingWorkflowService
             }
 
             $purchaseOrder->forceFill([
-                'status' => $this->purchaseOrderStatusFor($purchaseOrder->items()->get()),
+                'status' => $this->resolvePoReceiptStatus($purchaseOrder->items()->get()),
             ])->save();
 
             // Create Supplier Payable if fully or partially received
@@ -115,7 +115,12 @@ class PurchasingWorkflowService
         });
     }
 
-    private function purchaseOrderStatusFor($items): string
+    /**
+     * Hitung status PO berdasarkan total vs received quantity.
+     *
+     * @param  iterable<PurchaseOrderItem>  $items
+     */
+    private function resolvePoReceiptStatus(iterable $items): string
     {
         $totalQty = 0.0;
         $receivedQty = 0.0;
@@ -125,11 +130,11 @@ class PurchasingWorkflowService
             $receivedQty += (float) $item->received_qty;
         }
 
-        if ($receivedQty <= 0) {
-            return 'ordered';
-        }
-
-        return $receivedQty >= $totalQty ? 'fully_received' : 'partially_received';
+        return match (true) {
+            $receivedQty <= 0 => 'ordered',
+            $receivedQty >= $totalQty => 'fully_received',
+            default => 'partially_received',
+        };
     }
 
     public function approveReturn(string $id): ProductReturn
@@ -147,94 +152,111 @@ class PurchasingWorkflowService
 
             foreach ($return->items as $item) {
                 if ($return->type === 'customer') {
-                    // Customer Return (Internal Defect): Item goes back to Warehouse
-                    $stock = ProductStock::query()->firstOrCreate(
-                        ['product_id' => $item->product_id, 'location_id' => $locationId],
-                        ['quantity' => 0]
-                    );
-                    $stock->increment('quantity', $item->quantity);
-
-                    StockMovement::query()->create([
-                        'product_id' => $item->product_id,
-                        'from_location_id' => null,
-                        'to_location_id' => $locationId,
-                        'type' => 'in',
-                        'quantity' => $item->quantity,
-                        'reference_type' => 'return',
-                        'reference_id' => $return->id,
-                        'reference_number' => $return->return_number,
-                        'notes' => 'Customer Return Approved',
-                        'movement_at' => now(),
-                    ]);
-
-                    if ($return->sales_order_id) {
-                        $invoice = Invoice::where('sales_order_id', $return->sales_order_id)->first();
-                        if ($invoice) {
-                            $soItem = SalesOrderItem::where('sales_order_id', $return->sales_order_id)
-                                ->where('product_id', $item->product_id)
-                                ->first();
-                            if ($soItem) {
-                                $deduction = $item->quantity * $soItem->unit_price;
-                                $invoice->amount = max(0, $invoice->amount - $deduction);
-                                $invoice->status = $invoice->paid_amount >= $invoice->amount ? 'paid' : 'partial';
-                                $invoice->save();
-                            }
-                        }
-                    }
-
+                    $this->approveCustomerReturnItem($return, $item, $locationId);
                 } elseif ($return->type === 'supplier') {
-                    // Supplier Return: Item leaves Warehouse
-                    $qtyToCut = $item->quantity;
-                    $stocks = ProductStock::query()
-                        ->where('product_id', $item->product_id)
-                        ->where('quantity', '>', 0)
-                        ->lockForUpdate()
-                        ->get();
-
-                    foreach ($stocks as $stock) {
-                        if ($qtyToCut <= 0) {
-                            break;
-                        }
-
-                        $cut = min((float) $stock->quantity, $qtyToCut);
-                        $stock->quantity = (float) $stock->quantity - $cut;
-                        $stock->save();
-
-                        StockMovement::query()->create([
-                            'product_id' => $item->product_id,
-                            'from_location_id' => $stock->location_id,
-                            'to_location_id' => null,
-                            'type' => 'out',
-                            'quantity' => $cut,
-                            'reference_type' => 'return',
-                            'reference_id' => $return->id,
-                            'reference_number' => $return->return_number,
-                            'notes' => 'Supplier Return Approved',
-                            'movement_at' => now(),
-                        ]);
-
-                        $qtyToCut -= $cut;
-                    }
-
-                    if ($return->purchase_order_id) {
-                        $payable = SupplierPayable::where('purchase_order_id', $return->purchase_order_id)->first();
-                        if ($payable) {
-                            $poItem = PurchaseOrderItem::where('purchase_order_id', $return->purchase_order_id)
-                                ->where('product_id', $item->product_id)
-                                ->first();
-                            if ($poItem) {
-                                $deduction = $item->quantity * $poItem->unit_price;
-                                $payable->amount = max(0, $payable->amount - $deduction);
-                                $payable->status = $payable->paid_amount >= $payable->amount ? 'paid' : 'open';
-                                $payable->save();
-                            }
-                        }
-                    }
+                    $this->approveSupplierReturnItem($return, $item);
                 }
             }
 
             return $return;
         });
+    }
+
+    private function approveCustomerReturnItem(ProductReturn $return, ReturnItem $item, ?string $locationId): void
+    {
+        $stock = ProductStock::query()->firstOrCreate(
+            ['product_id' => $item->product_id, 'location_id' => $locationId],
+            ['quantity' => 0]
+        );
+        $stock->increment('quantity', $item->quantity);
+
+        StockMovement::query()->create([
+            'product_id' => $item->product_id,
+            'from_location_id' => null,
+            'to_location_id' => $locationId,
+            'type' => 'in',
+            'quantity' => $item->quantity,
+            'reference_type' => 'return',
+            'reference_id' => $return->id,
+            'reference_number' => $return->return_number,
+            'notes' => 'Customer Return Approved',
+            'movement_at' => now(),
+        ]);
+
+        if (! $return->sales_order_id) {
+            return;
+        }
+
+        $invoice = Invoice::where('sales_order_id', $return->sales_order_id)->first();
+        if (! $invoice) {
+            return;
+        }
+
+        $soItem = SalesOrderItem::where('sales_order_id', $return->sales_order_id)
+            ->where('product_id', $item->product_id)
+            ->first();
+
+        if ($soItem) {
+            $deduction = $item->quantity * $soItem->unit_price;
+            $invoice->amount = max(0, $invoice->amount - $deduction);
+            $invoice->status = $invoice->paid_amount >= $invoice->amount ? 'paid' : 'partial';
+            $invoice->save();
+        }
+    }
+
+    private function approveSupplierReturnItem(ProductReturn $return, ReturnItem $item): void
+    {
+        $qtyToCut = $item->quantity;
+        $stocks = ProductStock::query()
+            ->where('product_id', $item->product_id)
+            ->where('quantity', '>', 0)
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($stocks as $stock) {
+            if ($qtyToCut <= 0) {
+                break;
+            }
+
+            $cut = min((float) $stock->quantity, $qtyToCut);
+            $stock->quantity = (float) $stock->quantity - $cut;
+            $stock->save();
+
+            StockMovement::query()->create([
+                'product_id' => $item->product_id,
+                'from_location_id' => $stock->location_id,
+                'to_location_id' => null,
+                'type' => 'out',
+                'quantity' => $cut,
+                'reference_type' => 'return',
+                'reference_id' => $return->id,
+                'reference_number' => $return->return_number,
+                'notes' => 'Supplier Return Approved',
+                'movement_at' => now(),
+            ]);
+
+            $qtyToCut -= $cut;
+        }
+
+        if (! $return->purchase_order_id) {
+            return;
+        }
+
+        $payable = SupplierPayable::where('purchase_order_id', $return->purchase_order_id)->first();
+        if (! $payable) {
+            return;
+        }
+
+        $poItem = PurchaseOrderItem::where('purchase_order_id', $return->purchase_order_id)
+            ->where('product_id', $item->product_id)
+            ->first();
+
+        if ($poItem) {
+            $deduction = $item->quantity * $poItem->unit_price;
+            $payable->amount = max(0, $payable->amount - $deduction);
+            $payable->status = $payable->paid_amount >= $payable->amount ? 'paid' : 'open';
+            $payable->save();
+        }
     }
 
     public function claimToSupplier(string $id): ProductReturn
@@ -382,21 +404,7 @@ class PurchasingWorkflowService
             return;
         }
 
-        $totalQty = 0.0;
-        $receivedQty = 0.0;
-
-        foreach ($purchaseOrder->items as $item) {
-            $totalQty += (float) $item->quantity;
-            $receivedQty += (float) $item->received_qty;
-        }
-
-        $status = match (true) {
-            $receivedQty <= 0 => 'ordered',
-            $receivedQty >= $totalQty => 'fully_received',
-            default => 'partially_received',
-        };
-
-        $purchaseOrder->forceFill(['status' => $status])->save();
+        $purchaseOrder->forceFill(['status' => $this->resolvePoReceiptStatus($purchaseOrder->items)])->save();
     }
 
     private function syncSupplierPayableForPurchaseOrder(string $purchaseOrderId): void
@@ -431,7 +439,7 @@ class PurchasingWorkflowService
             'amount' => $payableAmount,
             'paid_amount' => $paidAmount,
             'due_date' => $payable?->due_date ?? now()->addDays(30),
-            'status' => $this->supplierPayableStatusFor($paidAmount, $payableAmount),
+            'status' => SupplierPayable::resolveStatus($paidAmount, $payableAmount),
         ];
 
         if ($payable === null) {
@@ -442,14 +450,5 @@ class PurchasingWorkflowService
         }
 
         $payable->forceFill($attributes)->save();
-    }
-
-    private function supplierPayableStatusFor(float $paidAmount, float $amount): string
-    {
-        if ($paidAmount <= 0) {
-            return 'open';
-        }
-
-        return $paidAmount >= $amount ? 'paid' : 'partial';
     }
 }

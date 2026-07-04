@@ -77,9 +77,11 @@ class FinanceApiTest extends TestCase
 
         $invoice = Invoice::query()->where('invoice_number', 'INV-INIT')->firstOrFail();
         $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
+        $account = \App\Models\Account::firstOrCreate(['code' => '111-01'], ['name' => 'Kas Kecil', 'type' => 'cash', 'currency' => 'IDR', 'is_active' => true, 'balance' => 0]);
 
         $this->postJson('/api/finance/payments', [
             'invoice_id' => $invoice->id,
+            'account_id' => $account->id,
             'payment_number' => 'PAY-API-001',
             'payment_date' => '2026-06-05 10:00:00',
             'method' => 'transfer',
@@ -122,6 +124,7 @@ class FinanceApiTest extends TestCase
 
         $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
         $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
+        $account = \App\Models\Account::firstOrCreate(['code' => '111-01'], ['name' => 'Kas Kecil', 'type' => 'cash', 'currency' => 'IDR', 'is_active' => true, 'balance' => 0]);
 
         $invoiceId = $this->postJson('/api/finance/invoices', [
             'invoice_number' => 'INV-API-VERIFY',
@@ -134,6 +137,7 @@ class FinanceApiTest extends TestCase
 
         $firstPaymentId = $this->postJson('/api/finance/payments', [
             'invoice_id' => $invoiceId,
+            'account_id' => $account->id,
             'payment_number' => 'PAY-API-VERIFY-1',
             'payment_date' => '2026-06-06 09:00:00',
             'method' => 'transfer',
@@ -153,6 +157,7 @@ class FinanceApiTest extends TestCase
 
         $secondPaymentId = $this->postJson('/api/finance/payments', [
             'invoice_id' => $invoiceId,
+            'account_id' => $account->id,
             'payment_number' => 'PAY-API-VERIFY-2',
             'payment_date' => '2026-06-07 09:00:00',
             'method' => 'transfer',

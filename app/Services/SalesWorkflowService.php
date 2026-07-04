@@ -63,7 +63,7 @@ class SalesWorkflowService
                     'specification' => $item->specification,
                     'quantity' => $item->quantity,
                     'unit_price' => $item->unit_price,
-                    'discount_amount' => $item->discount_amount,
+                    'discount_amount' => $item->discount_amount ?? 0,
                     'subtotal' => $item->subtotal,
                 ]);
             }
@@ -209,7 +209,7 @@ class SalesWorkflowService
                             'specification' => $qItem->specification,
                             'quantity' => $qItem->quantity,
                             'unit_price' => $qItem->unit_price,
-                            'discount_amount' => $qItem->discount_amount,
+                            'discount_amount' => $qItem->discount_amount ?? 0,
                             'subtotal' => $qItem->subtotal,
                         ]);
                         $subtotal += $qItem->subtotal;
@@ -264,6 +264,8 @@ class SalesWorkflowService
                 ->lockForUpdate()
                 ->whereKey($id)
                 ->firstOrFail();
+            
+
 
             abort_if($salesOrder->items->isEmpty(), 422, 'Sales order must have at least one item before delivery.');
             abort_if($salesOrder->status !== 'approved', 422, 'Only approved sales orders can be delivered.');

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Customer;
+use App\Models\Invoice;
 use App\Models\Product;
 use App\Models\ProductStock;
 use App\Models\Quotation;
@@ -103,6 +104,7 @@ class SalesApiTest extends TestCase
             'quantity' => 2,
             'unit_price' => 125000,
             'subtotal' => 250000,
+            'discount_amount' => 0,
         ])
             ->assertCreated()
             ->assertJsonPath('data.sales_order.order_number', 'SO-API-001')
@@ -130,6 +132,7 @@ class SalesApiTest extends TestCase
             'quantity' => 1,
             'unit_price' => 150000,
             'subtotal' => 150000,
+            'discount_amount' => 0,
         ])->assertCreated()->json('data.id');
 
         $deliveryResponse = $this->postJson('/api/sales/delivery-orders', [
@@ -214,22 +217,40 @@ class SalesApiTest extends TestCase
         $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
         $product = Product::query()->where('sku', 'PRC-0001')->firstOrFail();
 
-        $orderId = $this->postJson('/api/sales/sales-orders', [
+        $res = $this->postJson('/api/sales/sales-orders', [
             'order_number' => 'SO-API-DELIVER',
             'customer_id' => $customer->id,
             'order_date' => '2026-06-06',
             'total' => 450000,
-            'status' => 'processing',
-        ])->assertCreated()->json('data.id');
+            'status' => 'approved',
+        ]);
+        $orderId = $res->assertCreated()->json('data.id');
 
-        $this->postJson('/api/sales/sales-order-items', [
+        $res = $this->postJson('/api/sales/sales-order-items', [
             'sales_order_id' => $orderId,
             'product_id' => $product->id,
             'description' => 'Delivery workflow item',
             'quantity' => 3,
             'unit_price' => 150000,
             'subtotal' => 450000,
-        ])->assertCreated();
+            'discount_amount' => 0,
+        ]);
+
+        if ($res->status() !== 201) {
+            dump($res->json());
+        }
+        $res->assertCreated();
+
+        Invoice::query()->create([
+            'invoice_number' => 'INV-API-DELIVER',
+            'sales_order_id' => $orderId,
+            'customer_id' => $customer->id,
+            'invoice_date' => '2026-06-06',
+            'due_date' => '2026-06-13',
+            'total' => 450000,
+            'paid_amount' => 450000,
+            'status' => 'paid',
+        ]);
 
         $response = $this->postJson("/api/sales/sales-orders/{$orderId}/deliver", [
             'delivery_number' => 'DO-API-WORKFLOW',
@@ -273,23 +294,36 @@ class SalesApiTest extends TestCase
             'customer_id' => $customer->id,
             'order_date' => '2026-06-06',
             'total' => 200000,
-            'status' => 'processing',
+            'status' => 'approved',
         ])->assertCreated()->json('data.id');
 
         $this->postJson('/api/sales/sales-order-items', [
             'sales_order_id' => $orderId,
             'product_id' => $product->id,
+            'description' => 'Delivery workflow item 2',
             'quantity' => 2,
             'unit_price' => 100000,
             'subtotal' => 200000,
+            'discount_amount' => 0,
         ])->assertCreated();
 
-        $deliveryId = $this->postJson("/api/sales/sales-orders/{$orderId}/deliver", [
+        Invoice::query()->create([
+            'invoice_number' => 'INV-API-SHIP',
+            'sales_order_id' => $orderId,
+            'customer_id' => $customer->id,
+            'invoice_date' => '2026-06-06',
+            'due_date' => '2026-06-13',
+            'total' => 200000,
+            'paid_amount' => 200000,
+            'status' => 'paid',
+        ]);
+
+        $doId = $this->postJson("/api/sales/sales-orders/{$orderId}/deliver", [
             'delivery_number' => 'DO-API-SHIP',
             'delivery_date' => '2026-06-07',
         ])->assertCreated()->json('data.id');
 
-        $this->postJson("/api/sales/delivery-orders/{$deliveryId}/ship", [
+        $this->postJson("/api/sales/delivery-orders/{$doId}/ship", [
             'from_location_id' => $location->id,
             'handled_by' => $admin->id,
             'movement_at' => '2026-06-07 09:00:00',

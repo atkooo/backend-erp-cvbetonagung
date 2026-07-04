@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'specification',
     'quantity',
     'unit_price',
+    'discount_amount',
     'subtotal',
 ])]
 class QuotationItem extends Model

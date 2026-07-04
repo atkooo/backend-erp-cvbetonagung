@@ -45,7 +45,7 @@ class MasterDataApiTest extends TestCase
         $this->deleteJson("/api/master-data/customers/{$id}")
             ->assertNoContent();
 
-        $this->assertDatabaseMissing('customers', ['id' => $id]);
+        $this->assertSoftDeleted('customers', ['id' => $id]);
     }
 
     public function test_master_data_unique_validation_ignores_current_record_on_update(): void

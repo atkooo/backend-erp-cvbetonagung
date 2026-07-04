@@ -17,10 +17,12 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RbacSeeder::class,
             AuthSeeder::class,
-            CustomerSeeder::class,
-            SupplierSeeder::class,
-            ProductSeeder::class,
-            MaterialSeeder::class,
         ]);
+
+        if (app()->environment('testing')) {
+            $this->call([
+                MasterDataTestSeeder::class,
+            ]);
+        }
     }
 }

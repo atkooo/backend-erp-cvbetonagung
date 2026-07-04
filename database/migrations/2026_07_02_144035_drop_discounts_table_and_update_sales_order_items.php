@@ -25,6 +25,12 @@ return new class extends Migration
             });
         }
 
+        if (! Schema::hasColumn('sales_order_items', 'discount_amount')) {
+            Schema::table('sales_order_items', function (Blueprint $table) {
+                $table->decimal('discount_amount', 18, 2)->default(0)->after('unit_price');
+            });
+        }
+
         Schema::dropIfExists('discounts');
     }
 

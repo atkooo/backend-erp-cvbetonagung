@@ -5,11 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['code', 'name', 'type', 'address', 'status'])]
-class Warehouse extends Model
+class Warehouse SoftDeletes, extends Model
 {
     use HasUuids, GeneratesDocumentNumber;
 

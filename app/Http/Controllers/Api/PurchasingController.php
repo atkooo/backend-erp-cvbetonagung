@@ -18,6 +18,7 @@ use App\Services\PurchasingWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 
 class PurchasingController extends ApiResourceController
 {
@@ -166,11 +167,11 @@ class PurchasingController extends ApiResourceController
             if ($status === 'approved' && $return->qc_status !== 'approved') {
                 $updatedReturn = $this->purchasingWorkflow->approveReturn($id);
 
-                return response()->json(['data' => $updatedReturn->fresh($this->resources()['returns']['relations'] ?? [])]);
+                return (new JsonResource($updatedReturn->fresh($this->resources()['returns']['relations'] ?? [])))->response();
             } elseif ($status === 'supplier_claim' && $return->qc_status !== 'supplier_claim') {
                 $updatedReturn = $this->purchasingWorkflow->claimToSupplier($id);
 
-                return response()->json(['data' => $updatedReturn->fresh($this->resources()['returns']['relations'] ?? [])]);
+                return (new JsonResource($updatedReturn->fresh($this->resources()['returns']['relations'] ?? [])))->response();
             }
         }
 

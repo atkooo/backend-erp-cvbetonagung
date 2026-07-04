@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
 
 class ProductImageController extends Controller
@@ -45,6 +46,6 @@ class ProductImageController extends Controller
 
         $product->update(['image' => null]);
 
-        return response()->json(['data' => ['image' => null]]);
+        return (new JsonResource(['image' => null]))->response();
     }
 }

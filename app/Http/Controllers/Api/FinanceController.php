@@ -16,6 +16,7 @@ use App\Services\FinanceWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
@@ -88,7 +89,7 @@ class FinanceController extends ApiResourceController
             $transaction = $this->financeWorkflow->recordCashTransaction($request->validated());
             $transaction->load(['account', 'recordedBy']);
 
-            return response()->json(['data' => $transaction], 201);
+            return (new JsonResource($transaction))->response()->setStatusCode(201);
         }
 
         if ($resource === 'payments') {
@@ -195,7 +196,7 @@ class FinanceController extends ApiResourceController
             return $model;
         });
 
-        return response()->json(['data' => $model->fresh($config['relations'] ?? [])], 201);
+        return (new JsonResource($model->fresh($config['relations'] ?? [])))->response()->setStatusCode(201);
     }
 
     protected function updateWithItems(string $resource, string $id, array $attributes): JsonResponse
@@ -239,7 +240,7 @@ class FinanceController extends ApiResourceController
             }
         });
 
-        return response()->json(['data' => $model->fresh($config['relations'] ?? [])]);
+        return (new JsonResource($model->fresh($config['relations'] ?? [])))->response();
     }
 
     public function destroy(string $resource, string $id): JsonResponse|Response

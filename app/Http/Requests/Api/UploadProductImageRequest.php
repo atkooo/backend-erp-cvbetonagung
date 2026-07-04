@@ -4,7 +4,7 @@ namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class LoginRequest extends FormRequest
+class UploadProductImageRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -14,9 +14,8 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => 'required_without:otp|email|nullable',
-            'password' => 'required_without:otp',
-            'otp' => 'required_without:password',
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'is_primary' => 'nullable|boolean',
         ];
     }
 }

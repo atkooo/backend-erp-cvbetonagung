@@ -15,6 +15,7 @@ use App\Services\InventoryWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
 
@@ -94,7 +95,7 @@ class InventoryController extends ApiResourceController
             );
             $model->load($config['relations'] ?? []);
 
-            return response()->json(['data' => $model], 201);
+            return (new JsonResource($model))->response()->setStatusCode(201);
         }
 
         if ($resource === 'bags') {
@@ -138,7 +139,7 @@ class InventoryController extends ApiResourceController
         $stock->save();
         $stock->load(['product', 'location']);
 
-        return response()->json(['data' => $stock]);
+        return (new JsonResource($stock))->response();
     }
 
     public function destroy(string $resource, string $id): JsonResponse|Response

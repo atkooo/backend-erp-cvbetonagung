@@ -2,6 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\DeliveryOrderStatus;
+use App\Enums\InvoiceStatus;
+use App\Enums\SalesOrderStatus;
+use App\Exceptions\InsufficientStockException;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
 use App\Models\Invoice;
@@ -12,10 +16,6 @@ use App\Models\Quotation;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Models\StockMovement;
-use App\Enums\DeliveryOrderStatus;
-use App\Enums\InvoiceStatus;
-use App\Enums\SalesOrderStatus;
-use App\Exceptions\InsufficientStockException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -609,18 +609,17 @@ class SalesWorkflowService
             return $salesOrder;
         });
     }
+
     /**
      * Check product stock and throw exception if insufficient.
      *
-     * @param string $productId
-     * @param float $qtyNeeded
      * @throws InsufficientStockException
      */
     public function checkProductStock(string $productId, float $qtyNeeded): void
     {
         $totalStock = ProductStock::where('product_id', $productId)->lockForUpdate()->sum('quantity');
-        
-        if ((float)$totalStock < (float)$qtyNeeded) {
+
+        if ((float) $totalStock < (float) $qtyNeeded) {
             $productName = Product::find($productId)->name ?? 'Unknown';
             throw new InsufficientStockException($productName, $qtyNeeded, $totalStock);
         }

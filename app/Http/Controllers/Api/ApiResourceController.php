@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
 
@@ -33,7 +34,7 @@ abstract class ApiResourceController extends Controller
             ->withQueryString();
 
         return response()->json([
-            'data' => $paginator->items(),
+            'data' => JsonResource::collection($paginator->items()),
             'meta' => [
                 'current_page' => $paginator->currentPage(),
                 'last_page' => $paginator->lastPage(),
@@ -52,14 +53,14 @@ abstract class ApiResourceController extends Controller
         $modelClass = $config['model'];
         $model = $modelClass::query()->create($attributes);
 
-        return response()->json(['data' => $model->fresh($config['relations'] ?? [])], 201);
+        return (new JsonResource($model->fresh($config['relations'] ?? [])))->response()->setStatusCode(201);
     }
 
     protected function showResource(string $resource, string $id): JsonResponse
     {
         $config = $this->resourceConfig($resource);
 
-        return response()->json(['data' => $this->findResourceModel($config, $id)]);
+        return (new JsonResource($this->findResourceModel($config, $id)))->response();
     }
 
     /**
@@ -73,7 +74,7 @@ abstract class ApiResourceController extends Controller
         $model->fill($attributes);
         $model->save();
 
-        return response()->json(['data' => $model->fresh($config['relations'] ?? [])]);
+        return (new JsonResource($model->fresh($config['relations'] ?? [])))->response();
     }
 
     protected function destroyResource(string $resource, string $id): JsonResponse|Response

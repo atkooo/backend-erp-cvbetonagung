@@ -2,24 +2,25 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\DeliveryOrderStatus;
+use App\Enums\SalesOrderStatus;
 use App\Http\Requests\Api\ApproveQuotationRequest;
 use App\Http\Requests\Api\ApproveSalesOrderRequest;
 use App\Http\Requests\Api\CreateDeliveryOrderRequest;
+use App\Http\Requests\Api\ProcessPosRequest;
 use App\Http\Requests\Api\SalesRequest;
 use App\Http\Requests\Api\ShipDeliveryOrderRequest;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
-use App\Models\ProductStock;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
-use App\Enums\DeliveryOrderStatus;
-use App\Enums\SalesOrderStatus;
 use App\Services\SalesWorkflowService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
@@ -84,13 +85,13 @@ class SalesController extends ApiResourceController
         if ($resource === 'quotations') {
             $model = $service->createQuotation($data);
 
-            return response()->json(['data' => $model], 201);
+            return (new JsonResource($model))->response()->setStatusCode(201);
         }
 
         if ($resource === 'sales-orders') {
             $model = $service->createSalesOrder($data);
 
-            return response()->json(['data' => $model], 201);
+            return (new JsonResource($model))->response()->setStatusCode(201);
         }
 
         return $this->storeResource($resource, $data);
@@ -111,13 +112,13 @@ class SalesController extends ApiResourceController
         if ($resource === 'quotations') {
             $model = $service->updateQuotation($id, $data);
 
-            return response()->json(['data' => $model]);
+            return (new JsonResource($model))->response();
         }
 
         if ($resource === 'sales-orders') {
             $model = $service->updateSalesOrder($id, $data);
 
-            return response()->json(['data' => $model]);
+            return (new JsonResource($model))->response();
         }
 
         if ($resource === 'delivery-orders') {
@@ -143,7 +144,7 @@ class SalesController extends ApiResourceController
                 }
             });
 
-            return response()->json(['data' => $model->fresh($config['relations'] ?? [])]);
+            return (new JsonResource($model->fresh($config['relations'] ?? [])))->response();
         }
 
         return $this->updateResource($resource, $id, $data);
@@ -163,7 +164,7 @@ class SalesController extends ApiResourceController
         $salesOrder = $service->approveQuotation($id, $request->validated());
         $config = $this->resourceConfig('sales-orders');
 
-        return response()->json(['data' => $salesOrder->fresh($config['relations'] ?? [])], 201);
+        return (new JsonResource($salesOrder->fresh($config['relations'] ?? [])))->response()->setStatusCode(201);
     }
 
     public function approveSalesOrder(ApproveSalesOrderRequest $request, string $id, SalesWorkflowService $service): JsonResponse
@@ -171,7 +172,7 @@ class SalesController extends ApiResourceController
         $salesOrder = $service->approveSalesOrder($id, $request->validated());
         $config = $this->resourceConfig('sales-orders');
 
-        return response()->json(['data' => $salesOrder->fresh($config['relations'] ?? [])], 200);
+        return (new JsonResource($salesOrder->fresh($config['relations'] ?? [])))->response()->setStatusCode(200);
     }
 
     public function createDeliveryOrder(CreateDeliveryOrderRequest $request, string $id, SalesWorkflowService $service): JsonResponse
@@ -179,7 +180,7 @@ class SalesController extends ApiResourceController
         $deliveryOrder = $service->createDeliveryOrder($id, $request->validated());
         $config = $this->resourceConfig('delivery-orders');
 
-        return response()->json(['data' => $deliveryOrder->fresh($config['relations'] ?? [])], 201);
+        return (new JsonResource($deliveryOrder->fresh($config['relations'] ?? [])))->response()->setStatusCode(201);
     }
 
     public function shipDeliveryOrder(ShipDeliveryOrderRequest $request, string $id, SalesWorkflowService $service): JsonResponse
@@ -187,37 +188,17 @@ class SalesController extends ApiResourceController
         $deliveryOrder = $service->shipDeliveryOrder($id, $request->validated());
         $config = $this->resourceConfig('delivery-orders');
 
-        return response()->json(['data' => $deliveryOrder->fresh($config['relations'] ?? [])], 200);
+        return (new JsonResource($deliveryOrder->fresh($config['relations'] ?? [])))->response()->setStatusCode(200);
     }
 
-    public function processPos(Request $request, SalesWorkflowService $service): JsonResponse
+    public function processPos(ProcessPosRequest $request, SalesWorkflowService $service): JsonResponse
     {
-        $validated = $request->validate([
-            'customer_id' => ['required', 'uuid', 'exists:customers,id'],
-            'transaction_date' => ['nullable', 'date'],
-            'fulfillment_type' => ['nullable', 'string', 'in:take_away,delivery'],
-            'payment_account_id' => ['required', 'uuid', 'exists:accounts,id'],
-            'amount_paid' => ['nullable', 'numeric', 'min:0'],
-            'notes' => ['nullable', 'string'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'uuid', 'exists:products,id'],
-            'items.*.location_id' => ['required', 'uuid', 'exists:storage_locations,id'],
-            'items.*.description' => ['nullable', 'string'],
-            'items.*.specification' => ['nullable', 'string'],
-            'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
-            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
-            'items.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
-            'items.*.fulfillment_type' => ['nullable', 'string', 'in:take_away,delivery'],
-            'handled_by' => ['nullable', 'string'],
-            'global_discount_type' => ['nullable', 'string', 'in:percentage,nominal'],
-            'global_discount_value' => ['nullable', 'numeric', 'min:0'],
-            'global_discount_amount' => ['nullable', 'numeric', 'min:0'],
-        ]);
+        $validated = $request->validated();
 
         $salesOrder = $service->processPOS($validated);
         $config = $this->resourceConfig('sales-orders');
 
-        return response()->json(['data' => $salesOrder->fresh($config['relations'] ?? [])], 201);
+        return (new JsonResource($salesOrder->fresh($config['relations'] ?? [])))->response()->setStatusCode(201);
     }
 
     protected function filterableColumns(): array

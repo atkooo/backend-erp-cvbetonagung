@@ -7,17 +7,18 @@ use App\Models\Customer;
 use App\Models\Product;
 use App\Models\Supplier;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\JsonResource;
 
 class MasterQueryController extends Controller
 {
     public function customers(): JsonResponse
     {
-        return response()->json(['data' => Customer::query()->orderBy('code')->get()]);
+        return (new JsonResource(Customer::query()->orderBy('code')->get()))->response();
     }
 
     public function suppliers(): JsonResponse
     {
-        return response()->json(['data' => Supplier::query()->orderBy('code')->get()]);
+        return (new JsonResource(Supplier::query()->orderBy('code')->get()))->response();
     }
 
     public function products(): JsonResponse

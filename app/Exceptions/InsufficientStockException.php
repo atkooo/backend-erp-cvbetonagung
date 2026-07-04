@@ -18,8 +18,8 @@ class InsufficientStockException extends Exception
         return response()->json([
             'message' => $this->getMessage(),
             'errors' => [
-                'stock' => [$this->getMessage()]
-            ]
+                'stock' => [$this->getMessage()],
+            ],
         ], 422);
     }
 }

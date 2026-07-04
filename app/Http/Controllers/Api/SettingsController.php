@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 
 class SettingsController extends Controller
 {
@@ -12,7 +13,7 @@ class SettingsController extends Controller
     {
         $settings = Setting::all()->pluck('value', 'key');
 
-        return response()->json(['data' => $settings]);
+        return (new JsonResource($settings))->response();
     }
 
     public function store(Request $request)
@@ -28,6 +29,6 @@ class SettingsController extends Controller
 
         $settings = Setting::all()->pluck('value', 'key');
 
-        return response()->json(['data' => $settings]);
+        return (new JsonResource($settings))->response();
     }
 }

@@ -12,6 +12,7 @@ use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
+use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Services\SalesWorkflowService;
 use Illuminate\Database\Eloquent\Builder;

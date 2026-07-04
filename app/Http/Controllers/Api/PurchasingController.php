@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\Api\PurchasingRequest;
 use App\Http\Requests\Api\ReceivePurchaseOrderRequest;
 use App\Models\GoodsReceiptNote;
+use App\Models\GoodsReceiptNoteItem;
 use App\Models\ProductReturn;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;

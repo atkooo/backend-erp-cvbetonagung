@@ -90,6 +90,36 @@ class MasterDataApiTest extends TestCase
             ->assertJsonPath('data.unit.code', 'PCS');
     }
 
+    public function test_product_update_keeps_same_qr_value_and_sku(): void
+    {
+        $category = ProductCategory::query()->create(['name' => 'Panel Beton']);
+        $unit = Unit::query()->create(['code' => 'PCS', 'name' => 'Pieces']);
+
+        $createResponse = $this->postJson('/api/master-data/products', [
+            'category_id' => $category->id,
+            'unit_id' => $unit->id,
+            'sku' => 'PNL-API-002',
+            'name' => 'Panel API 2',
+            'cost_price' => 100000,
+            'selling_price' => 125000,
+            'min_stock' => 5,
+            'stock_status' => 'safe',
+            'qr_value' => 'QR-PNL-002',
+        ])->assertCreated();
+
+        $id = $createResponse->json('data.id');
+
+        $this->putJson("/api/master-data/products/{$id}", [
+            'sku' => 'PNL-API-002',
+            'name' => 'Panel API 2 Updated',
+            'selling_price' => 130000,
+            'qr_value' => 'QR-PNL-002',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Panel API 2 Updated')
+            ->assertJsonPath('data.selling_price', '130000.00');
+    }
+
     public function test_unknown_master_data_resource_returns_not_found(): void
     {
         $this->getJson('/api/master-data/unknown')

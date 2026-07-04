@@ -20,8 +20,9 @@ class MaterialSeeder extends Seeder
     public function run(): void
     {
         $csvPath = base_path('docs/Bahan_GoLive_Data_ERP_CVBetonAgung.csv');
-        if (!file_exists($csvPath)) {
+        if (! file_exists($csvPath)) {
             $this->command->warn("CSV file not found at {$csvPath}. Skipping material seed from CSV.");
+
             return;
         }
 
@@ -54,18 +55,18 @@ class MaterialSeeder extends Seeder
             $name = mb_convert_encoding(trim($data[1]), 'UTF-8', 'ISO-8859-1');
             $spec = mb_convert_encoding(trim($data[2]), 'UTF-8', 'ISO-8859-1');
             $unitCode = strtoupper(trim($data[3])) ?: 'PCS';
-            
+
             $costPriceStr = trim($data[4]);
-            $costPrice = (int)str_replace(['.', ','], '', $costPriceStr);
-            
+            $costPrice = (int) str_replace(['.', ','], '', $costPriceStr);
+
             $initialStockStr = trim($data[5]);
-            $initialStock = (int)str_replace(['.', ','], '', $initialStockStr);
+            $initialStock = (int) str_replace(['.', ','], '', $initialStockStr);
 
             $minStockStr = trim($data[6]);
-            $minStock = (int)str_replace(['.', ','], '', $minStockStr);
+            $minStock = (int) str_replace(['.', ','], '', $minStockStr);
 
             if (empty($sku)) {
-                $sku = 'MAT' . str_pad($skuCounter++, 4, '0', STR_PAD_LEFT);
+                $sku = 'MAT'.str_pad($skuCounter++, 4, '0', STR_PAD_LEFT);
             }
 
             // Ensure unit exists
@@ -82,7 +83,7 @@ class MaterialSeeder extends Seeder
                     'unit_id' => $unit->id,
                     'sku' => $sku,
                     'type' => 'raw_material',
-                    'name' => $name . ($spec ? " ($spec)" : ""),
+                    'name' => $name.($spec ? " ($spec)" : ''),
                     'cost_price' => $costPrice,
                     'selling_price' => 0, // Material doesn't have selling price
                     'min_stock' => $minStock,
@@ -102,7 +103,7 @@ class MaterialSeeder extends Seeder
                 StockMovement::query()->updateOrCreate(
                     [
                         'reference_type' => 'seed',
-                        'reference_number' => 'SEED-MAT-' . $product->sku . '-' . $locUtm->code,
+                        'reference_number' => 'SEED-MAT-'.$product->sku.'-'.$locUtm->code,
                         'product_id' => $product->id,
                     ],
                     [

@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class SalaryComponent extends Model
 {
@@ -16,7 +16,7 @@ class SalaryComponent extends Model
         'type',
         'is_taxable',
         'is_fixed',
-        'default_amount'
+        'default_amount',
     ];
 
     protected $casts = [

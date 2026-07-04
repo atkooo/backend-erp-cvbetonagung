@@ -5,7 +5,7 @@ namespace Tests\Feature\Api;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
 use Tests\TestCase;
 
 class AuthApiTest extends TestCase
@@ -43,8 +43,8 @@ class AuthApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('message', 'Logged out successfully.');
 
-        \Illuminate\Support\Facades\Auth::forgetUser();
-        \Illuminate\Support\Facades\Auth::guard('sanctum')->forgetUser();
+        Auth::forgetUser();
+        Auth::guard('sanctum')->forgetUser();
 
         $this->withToken($token)
             ->getJson('/api/auth/me')

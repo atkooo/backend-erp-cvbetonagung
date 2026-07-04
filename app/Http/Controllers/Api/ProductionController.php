@@ -23,6 +23,7 @@ class ProductionController extends ApiResourceController
     {
         $this->workflowService = $workflowService;
     }
+
     /**
      * @var array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
      */
@@ -125,7 +126,7 @@ class ProductionController extends ApiResourceController
             'movement_at' => ['nullable', 'date'],
         ]);
 
-        if (!isset($validated['movement_at'])) {
+        if (! isset($validated['movement_at'])) {
             $validated['movement_at'] = now()->toDateTimeString();
         }
 

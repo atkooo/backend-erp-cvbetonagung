@@ -49,8 +49,9 @@ class ProductSeeder extends Seeder
 
         // 3. Read products from CSV
         $csvPath = base_path('docs/Produk_GoLive_Data_ERP_CVBetonAgung.csv');
-        if (!file_exists($csvPath)) {
+        if (! file_exists($csvPath)) {
             $this->command->warn("CSV file not found at {$csvPath}. Skipping product seed from CSV.");
+
             return;
         }
 
@@ -79,22 +80,22 @@ class ProductSeeder extends Seeder
             $name = mb_convert_encoding(trim($data[2]), 'UTF-8', 'ISO-8859-1');
             $spec = mb_convert_encoding(trim($data[3]), 'UTF-8', 'ISO-8859-1');
             $unitCode = strtoupper(trim($data[4])) ?: 'PCS';
-            
+
             $costPriceStr = trim($data[5]);
             $sellingPriceStr = trim($data[6]);
-            
-            $costPrice = (int)str_replace(['.', ','], '', $costPriceStr);
-            $sellingPrice = (int)str_replace(['.', ','], '', $sellingPriceStr);
+
+            $costPrice = (int) str_replace(['.', ','], '', $costPriceStr);
+            $sellingPrice = (int) str_replace(['.', ','], '', $sellingPriceStr);
 
             if ($costPrice == 0 && $sellingPrice > 0) {
-                $costPrice = (int)($sellingPrice * 0.8); // Default assumption if cost price is missing
+                $costPrice = (int) ($sellingPrice * 0.8); // Default assumption if cost price is missing
             }
 
-            $initialStock = (int)trim($data[7]);
-            $minStock = (int)trim($data[8]);
-            
+            $initialStock = (int) trim($data[7]);
+            $minStock = (int) trim($data[8]);
+
             if (empty($sku)) {
-                $sku = 'PRD' . str_pad($skuCounter++, 4, '0', STR_PAD_LEFT);
+                $sku = 'PRD'.str_pad($skuCounter++, 4, '0', STR_PAD_LEFT);
             }
 
             // Ensure category exists
@@ -117,7 +118,7 @@ class ProductSeeder extends Seeder
                     'unit_id' => $unit->id,
                     'sku' => $sku,
                     'type' => 'finished_good',
-                    'name' => $name . ($spec ? " ($spec)" : ""),
+                    'name' => $name.($spec ? " ($spec)" : ''),
                     'cost_price' => $costPrice,
                     'selling_price' => $sellingPrice,
                     'min_stock' => $minStock,
@@ -137,7 +138,7 @@ class ProductSeeder extends Seeder
                 StockMovement::query()->updateOrCreate(
                     [
                         'reference_type' => 'seed',
-                        'reference_number' => 'SEED-TRIAL-' . $product->sku . '-' . $locUtm->code,
+                        'reference_number' => 'SEED-TRIAL-'.$product->sku.'-'.$locUtm->code,
                         'product_id' => $product->id,
                     ],
                     [

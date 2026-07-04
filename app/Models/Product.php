@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
+use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
@@ -31,13 +31,13 @@ use Illuminate\Support\Facades\Storage;
 ])]
 class Product extends Model
 {
-    use SoftDeletes, HasUuids, GeneratesDocumentNumber;
+    use GeneratesDocumentNumber, HasUuids, SoftDeletes;
 
     protected $appends = ['image_url'];
 
     public function getImageUrlAttribute(): ?string
     {
-        if (!$this->image) {
+        if (! $this->image) {
             return null;
         }
 

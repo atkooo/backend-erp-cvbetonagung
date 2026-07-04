@@ -5,12 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\Api\AdjustStockOpnameItemRequest;
 use App\Http\Requests\Api\InventoryRequest;
 use App\Models\ApprovalRequest;
+use App\Models\Bag;
+use App\Models\BagItem;
 use App\Models\ProductStock;
 use App\Models\StockMovement;
 use App\Models\StockOpnameItem;
 use App\Models\StockOpnameSession;
-use App\Models\Bag;
-use App\Models\BagItem;
 use App\Services\InventoryWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -68,9 +68,7 @@ class InventoryController extends ApiResourceController
         ],
     ];
 
-    public function __construct(private readonly InventoryWorkflowService $inventoryWorkflow)
-    {
-    }
+    public function __construct(private readonly InventoryWorkflowService $inventoryWorkflow) {}
 
     /**
      * @return array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
@@ -101,6 +99,7 @@ class InventoryController extends ApiResourceController
 
         if ($resource === 'bags') {
             $bag = $this->inventoryWorkflow->processBag($request->validated());
+
             return response()->json([
                 'data' => $bag->fresh($config['relations'] ?? []),
             ], 201);

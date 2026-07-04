@@ -16,7 +16,7 @@ return new class extends Migration
                 Schema::table('sales_order_items', function (Blueprint $table) {
                     $table->dropForeign(['discount_id']);
                 });
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Abaikan jika foreign key sudah tidak ada
             }
 

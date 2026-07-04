@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class EmployeeSalary extends Model
 {
@@ -13,7 +13,7 @@ class EmployeeSalary extends Model
     protected $fillable = [
         'employee_id',
         'salary_component_id',
-        'amount'
+        'amount',
     ];
 
     protected $casts = [

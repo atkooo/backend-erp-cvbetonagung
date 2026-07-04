@@ -12,6 +12,7 @@ use App\Models\StorageLocation;
 use App\Models\Supplier;
 use App\Models\Unit;
 use App\Models\Warehouse;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,6 @@ class MasterDataController extends ApiResourceController
     /**
      * @var array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
      */
-    
     private const RESOURCES = [
         'customers' => [
             'model' => Customer::class,
@@ -112,7 +112,7 @@ class MasterDataController extends ApiResourceController
         return ['status'];
     }
 
-    protected function resourceQuery(array $config): \Illuminate\Database\Eloquent\Builder
+    protected function resourceQuery(array $config): Builder
     {
         $query = parent::resourceQuery($config);
 

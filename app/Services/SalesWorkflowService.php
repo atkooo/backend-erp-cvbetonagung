@@ -4,15 +4,19 @@ namespace App\Services;
 
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
-use App\Models\ProductStock;
-use App\Models\Quotation;
-use App\Models\QuotationItem;
-use App\Models\SalesOrder;
-use App\Models\SalesOrderItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\Product;
+use App\Models\ProductStock;
+use App\Models\Quotation;
+use App\Models\SalesOrder;
+use App\Models\SalesOrderItem;
 use App\Models\StockMovement;
-use App\Models\CashTransaction;
+use App\Enums\DeliveryOrderStatus;
+use App\Enums\InvoiceStatus;
+use App\Enums\SalesOrderStatus;
+use App\Exceptions\InsufficientStockException;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 class SalesWorkflowService
@@ -20,7 +24,7 @@ class SalesWorkflowService
     /**
      * Approve quotation dan buat Sales Order baru dari items-nya.
      *
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function approveQuotation(string $id, array $attributes): SalesOrder
     {
@@ -42,7 +46,7 @@ class SalesWorkflowService
                 'customer_id' => $quotation->customer_id,
                 'order_date' => $attributes['order_date'] ?? date('Y-m-d'),
                 'total' => $quotation->total,
-                'status' => $attributes['status'] ?? 'processing',
+                'status' => $attributes['status'] ?? SalesOrderStatus::Processing->value,
                 'global_discount_type' => $quotation->global_discount_type,
                 'global_discount_value' => $quotation->global_discount_value,
                 'global_discount_amount' => $quotation->global_discount_amount,
@@ -71,7 +75,7 @@ class SalesWorkflowService
     /**
      * Approve Sales Order dan otomatis buat Invoice-nya.
      *
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function approveSalesOrder(string $id, array $attributes): SalesOrder
     {
@@ -89,7 +93,7 @@ class SalesWorkflowService
                 'Only draft or processing sales orders can be approved.'
             );
 
-            $salesOrder->forceFill(['status' => 'approved'])->save();
+            $salesOrder->forceFill(['status' => SalesOrderStatus::Approved->value])->save();
 
             $invoice = Invoice::query()->create([
                 'sales_order_id' => $salesOrder->id,
@@ -99,7 +103,7 @@ class SalesWorkflowService
                 'subtotal' => $salesOrder->total,
                 'tax_amount' => 0,
                 'total' => $salesOrder->total,
-                'status' => 'unpaid',
+                'status' => InvoiceStatus::Unpaid->value,
             ]);
 
             foreach ($salesOrder->items as $item) {
@@ -120,7 +124,7 @@ class SalesWorkflowService
     /**
      * Buat Quotation baru beserta item-itemnya dalam satu transaksi.
      *
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function createQuotation(array $attributes): Quotation
     {
@@ -130,7 +134,7 @@ class SalesWorkflowService
 
             $quotation = Quotation::query()->create($attributes);
 
-            if (!empty($items)) {
+            if (! empty($items)) {
                 [$subtotal, $taxAmount] = $this->createLineItems($quotation, 'quotation', $items);
                 $quotation->forceFill([
                     'subtotal' => $subtotal,
@@ -146,7 +150,7 @@ class SalesWorkflowService
     /**
      * Update Quotation dan sinkronisasi item-itemnya.
      *
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function updateQuotation(string $id, array $attributes): Quotation
     {
@@ -178,7 +182,7 @@ class SalesWorkflowService
      * Buat Sales Order baru beserta item-itemnya dalam satu transaksi.
      * Jika berasal dari quotation, items akan di-copy dari quotation.
      *
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function createSalesOrder(array $attributes): SalesOrder
     {
@@ -191,7 +195,7 @@ class SalesWorkflowService
             $salesOrder = SalesOrder::query()->create($attributes);
 
             // Jika berasal dari quotation dan tidak ada items eksplisit → copy dari quotation
-            if (!empty($attributes['quotation_id']) && (!$hasItems || empty($items))) {
+            if (! empty($attributes['quotation_id']) && (! $hasItems || empty($items))) {
                 $quotation = Quotation::query()->with('items')->find($attributes['quotation_id']);
                 if ($quotation) {
                     $quotation->forceFill(['status' => 'approved'])->save();
@@ -212,7 +216,7 @@ class SalesWorkflowService
                     }
                     $salesOrder->forceFill(['total' => $subtotal])->save();
                 }
-            } elseif ($hasItems && !empty($items)) {
+            } elseif ($hasItems && ! empty($items)) {
                 [$subtotal] = $this->createLineItems($salesOrder, 'sales-order', $items);
                 $salesOrder->forceFill(['total' => $subtotal])->save();
             }
@@ -224,7 +228,7 @@ class SalesWorkflowService
     /**
      * Update Sales Order dan sinkronisasi item-itemnya.
      *
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function updateSalesOrder(string $id, array $attributes): SalesOrder
     {
@@ -250,7 +254,7 @@ class SalesWorkflowService
     /**
      * Buat Delivery Order dari Sales Order yang sudah disetujui.
      *
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function createDeliveryOrder(string $id, array $attributes): DeliveryOrder
     {
@@ -266,23 +270,19 @@ class SalesWorkflowService
             abort_if($salesOrder->deliveryOrders()->exists(), 409, 'Sales order already has a delivery order.');
 
             $invoice = $salesOrder->invoices()->first();
-            abort_if(!$invoice, 422, 'Sales order must have an invoice before delivery.');
+            abort_if(! $invoice, 422, 'Sales order must have an invoice before delivery.');
             abort_if((float) $invoice->paid_amount <= 0, 422, 'Invoice must be partially or fully paid before delivery.');
 
             if ($salesOrder->status === 'draft') {
-                $salesOrder->forceFill(['status' => 'processing'])->save();
+                $salesOrder->forceFill(['status' => SalesOrderStatus::Processing->value])->save();
             }
 
             $targetStatus = $attributes['status'] ?? 'ready_to_load';
 
-            if ($targetStatus === 'ready_to_load') {
+            if ($targetStatus === DeliveryOrderStatus::ReadyToLoad->value) {
                 foreach ($salesOrder->items as $item) {
                     $qtyNeeded = $item->piece_count ?? $item->quantity;
-                    $totalStock = \App\Models\ProductStock::where('product_id', $item->product_id)->lockForUpdate()->sum('quantity');
-                    if ($totalStock < $qtyNeeded) {
-                        $productName = \App\Models\Product::find($item->product_id)->name ?? 'Unknown';
-                        abort(422, "Stok tidak mencukupi untuk produk {$productName}. Dibutuhkan: {$qtyNeeded}, Tersedia: {$totalStock}. Silakan buat Work Order/Purchase Order terlebih dahulu.");
-                    }
+                    $this->checkProductStock($item->product_id, $qtyNeeded);
                 }
             }
 
@@ -312,7 +312,7 @@ class SalesWorkflowService
     /**
      * Kirim Delivery Order — kurangi stok dan catat mutasi.
      *
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function shipDeliveryOrder(string $id, array $attributes): DeliveryOrder
     {
@@ -356,7 +356,7 @@ class SalesWorkflowService
                 ]);
             }
 
-            $deliveryOrder->forceFill(['status' => 'shipped'])->save();
+            $deliveryOrder->forceFill(['status' => DeliveryOrderStatus::Shipped->value])->save();
 
             return $deliveryOrder;
         });
@@ -366,10 +366,9 @@ class SalesWorkflowService
      * Helper: buat line items untuk model (Quotation atau SalesOrder).
      * Menghitung subtotal per item dan mengembalikan total subtotal + tax.
      *
-     * @param \Illuminate\Database\Eloquent\Model $parent
-     * @param string $type 'quotation' | 'sales-order'
-     * @param array<int, array<string, mixed>> $items
-     * @param float $taxAmount
+     * @param  Model  $parent
+     * @param  string  $type  'quotation' | 'sales-order'
+     * @param  array<int, array<string, mixed>>  $items
      * @return array{0: float, 1: float} [subtotal, taxAmount]
      */
     private function createLineItems($parent, string $type, array $items, float $taxAmount = 0): array
@@ -403,7 +402,7 @@ class SalesWorkflowService
      * Jika take_away, memotong stok langsung dan status SO completed.
      * Jika delivery, membuat DeliveryOrder dan status SO pending_delivery.
      *
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function processPOS(array $attributes): SalesOrder
     {
@@ -423,7 +422,7 @@ class SalesWorkflowService
                 'customer_id' => $customerId,
                 'order_date' => $attributes['transaction_date'] ?? date('Y-m-d'),
                 'total' => 0,
-                'status' => 'completed', // Will update if there are deliveries/POs
+                'status' => SalesOrderStatus::Completed->value, // Will update if there are deliveries/POs
                 'source' => 'pos',
                 'notes' => $attributes['notes'] ?? 'Transaksi POS',
                 'global_discount_type' => $globalDiscountType,
@@ -432,7 +431,7 @@ class SalesWorkflowService
             ]);
 
             [$subtotal] = $this->createLineItems($salesOrder, 'sales-order', $items);
-            
+
             // Adjust final total with global discount
             $finalTotal = max(0, $subtotal - $globalDiscountAmount);
 
@@ -444,7 +443,7 @@ class SalesWorkflowService
             $poItems = [];
 
             foreach ($salesOrder->items as $index => $item) {
-                $product = \App\Models\Product::find($item->product_id);
+                $product = Product::find($item->product_id);
                 $locationId = $items[$index]['location_id'] ?? null;
                 $itemFulfillment = $items[$index]['fulfillment_type'] ?? 'take_away';
 
@@ -481,88 +480,90 @@ class SalesWorkflowService
             }
 
             // Update SO Status if any items are NOT taken away instantly
-            if (!empty($readyDeliveryItems) || !empty($poItems)) {
-                $salesOrder->status = 'pending_delivery';
+            if (! empty($readyDeliveryItems) || ! empty($poItems)) {
+                $salesOrder->status = SalesOrderStatus::PendingDelivery->value;
                 $salesOrder->save();
             }
 
             // 2A. Instant Stock Deductions for Take Away Items
-                foreach ($readyTakeAwayItems as $rItem) {
-                    $item = $rItem['item'];
-                    $locationId = $rItem['location_id'];
-                    $qtyToCut = $rItem['quantity'];
-                    
-                    $stocks = ProductStock::query()
-                        ->where('product_id', $item->product_id)
-                        ->where('quantity', '>', 0)
-                        ->lockForUpdate()
-                        ->get();
+            foreach ($readyTakeAwayItems as $rItem) {
+                $item = $rItem['item'];
+                $locationId = $rItem['location_id'];
+                $qtyToCut = $rItem['quantity'];
 
-                    $remainingToCut = $qtyToCut;
+                $stocks = ProductStock::query()
+                    ->where('product_id', $item->product_id)
+                    ->where('quantity', '>', 0)
+                    ->lockForUpdate()
+                    ->get();
 
-                    foreach ($stocks as $stock) {
-                        if ($remainingToCut <= 0) break;
+                $remainingToCut = $qtyToCut;
 
-                        $cut = min((float) $stock->quantity, $remainingToCut);
-                        $stock->quantity = (float) $stock->quantity - $cut;
-                        $stock->save();
-
-                        StockMovement::query()->create([
-                            'product_id' => $item->product_id,
-                            'from_location_id' => $stock->location_id,
-                            'to_location_id' => null,
-                            'type' => 'out',
-                            'quantity' => $cut,
-                            'reference_type' => 'pos',
-                            'reference_id' => $salesOrder->id,
-                            'reference_number' => $salesOrder->order_number,
-                            'handled_by' => auth()->id() ?? $attributes['handled_by'] ?? null,
-                            'notes' => 'Transaksi POS (Take Away)',
-                            'movement_at' => now(),
-                        ]);
-
-                        $remainingToCut -= $cut;
+                foreach ($stocks as $stock) {
+                    if ($remainingToCut <= 0) {
+                        break;
                     }
-                }
 
-                // 2B. Delivery Orders for Delivered Ready Items
-                if (!empty($readyDeliveryItems)) {
-                    $deliveryOrderReady = DeliveryOrder::query()->create([
-                        'delivery_number' => 'DO-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -4)),
-                        'sales_order_id' => $salesOrder->id,
-                        'customer_id' => $salesOrder->customer_id,
-                        'status' => 'ready_to_load',
-                        'notes' => 'Otomatis dari POS (Barang Ready - Kirim ke Lokasi)',
+                    $cut = min((float) $stock->quantity, $remainingToCut);
+                    $stock->quantity = (float) $stock->quantity - $cut;
+                    $stock->save();
+
+                    StockMovement::query()->create([
+                        'product_id' => $item->product_id,
+                        'from_location_id' => $stock->location_id,
+                        'to_location_id' => null,
+                        'type' => 'out',
+                        'quantity' => $cut,
+                        'reference_type' => 'pos',
+                        'reference_id' => $salesOrder->id,
+                        'reference_number' => $salesOrder->order_number,
+                        'handled_by' => auth()->id() ?? $attributes['handled_by'] ?? null,
+                        'notes' => 'Transaksi POS (Take Away)',
+                        'movement_at' => now(),
                     ]);
-                    foreach ($readyDeliveryItems as $rItem) {
-                        $deliveryOrderReady->items()->create([
-                            'sales_order_item_id' => $rItem['item']->id,
-                            'product_id' => $rItem['item']->product_id,
-                            'quantity' => $rItem['quantity'],
-                        ]);
-                    }
-                }
 
-                // 2C. Delivery Orders for PO/Backorder Items
-                if (!empty($poItems)) {
-                    $deliveryOrderPO = DeliveryOrder::query()->create([
-                        'delivery_number' => 'DO-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -4)),
-                        'sales_order_id' => $salesOrder->id,
-                        'customer_id' => $salesOrder->customer_id,
-                        'status' => 'draft',
-                        'notes' => 'Otomatis dari POS (Barang PO/Inden - Kirim Menyusul)',
-                    ]);
-                    foreach ($poItems as $pItem) {
-                        $deliveryOrderPO->items()->create([
-                            'sales_order_item_id' => $pItem->id,
-                            'product_id' => $pItem->product_id,
-                            'quantity' => $pItem->quantity,
-                        ]);
-                    }
+                    $remainingToCut -= $cut;
                 }
+            }
+
+            // 2B. Delivery Orders for Delivered Ready Items
+            if (! empty($readyDeliveryItems)) {
+                $deliveryOrderReady = DeliveryOrder::query()->create([
+                    'delivery_number' => 'DO-'.date('Ymd').'-'.strtoupper(substr(uniqid(), -4)),
+                    'sales_order_id' => $salesOrder->id,
+                    'customer_id' => $salesOrder->customer_id,
+                    'status' => DeliveryOrderStatus::ReadyToLoad->value,
+                    'notes' => 'Otomatis dari POS (Barang Ready - Kirim ke Lokasi)',
+                ]);
+                foreach ($readyDeliveryItems as $rItem) {
+                    $deliveryOrderReady->items()->create([
+                        'sales_order_item_id' => $rItem['item']->id,
+                        'product_id' => $rItem['item']->product_id,
+                        'quantity' => $rItem['quantity'],
+                    ]);
+                }
+            }
+
+            // 2C. Delivery Orders for PO/Backorder Items
+            if (! empty($poItems)) {
+                $deliveryOrderPO = DeliveryOrder::query()->create([
+                    'delivery_number' => 'DO-'.date('Ymd').'-'.strtoupper(substr(uniqid(), -4)),
+                    'sales_order_id' => $salesOrder->id,
+                    'customer_id' => $salesOrder->customer_id,
+                    'status' => DeliveryOrderStatus::Draft->value,
+                    'notes' => 'Otomatis dari POS (Barang PO/Inden - Kirim Menyusul)',
+                ]);
+                foreach ($poItems as $pItem) {
+                    $deliveryOrderPO->items()->create([
+                        'sales_order_item_id' => $pItem->id,
+                        'product_id' => $pItem->product_id,
+                        'quantity' => $pItem->quantity,
+                    ]);
+                }
+            }
 
             $amountPaid = isset($attributes['amount_paid']) ? (float) $attributes['amount_paid'] : (float) $subtotal;
-            $invoiceStatus = $amountPaid >= (float) $subtotal ? 'paid' : 'partial';
+            $invoiceStatus = $amountPaid >= (float) $subtotal ? InvoiceStatus::Paid->value : InvoiceStatus::Partial->value;
 
             // 3. Create Invoice
             $invoice = Invoice::query()->create([
@@ -590,13 +591,13 @@ class SalesWorkflowService
 
             // 4. Create Cash Transaction (Receipt)
             if ($amountPaid > 0) {
-                app(\App\Services\FinanceWorkflowService::class)->recordCashTransaction([
+                app(FinanceWorkflowService::class)->recordCashTransaction([
                     'account_id' => $attributes['payment_account_id'],
                     'transaction_date' => $salesOrder->order_date,
                     'type' => 'in',
                     'amount' => $amountPaid,
                     'category' => 'sales',
-                    'description' => 'Pembayaran POS: ' . $salesOrder->order_number,
+                    'description' => 'Pembayaran POS: '.$salesOrder->order_number,
                     'reference_type' => 'invoice',
                     'reference_id' => $invoice->id,
                     'recorded_by' => auth()->id() ?? $attributes['handled_by'] ?? null,
@@ -604,7 +605,24 @@ class SalesWorkflowService
             }
 
             $salesOrder->load(['customer', 'items.product', 'invoices', 'deliveryOrders.items']);
+
             return $salesOrder;
         });
+    }
+    /**
+     * Check product stock and throw exception if insufficient.
+     *
+     * @param string $productId
+     * @param float $qtyNeeded
+     * @throws InsufficientStockException
+     */
+    public function checkProductStock(string $productId, float $qtyNeeded): void
+    {
+        $totalStock = ProductStock::where('product_id', $productId)->lockForUpdate()->sum('quantity');
+        
+        if ((float)$totalStock < (float)$qtyNeeded) {
+            $productName = Product::find($productId)->name ?? 'Unknown';
+            throw new InsufficientStockException($productName, $qtyNeeded, $totalStock);
+        }
     }
 }

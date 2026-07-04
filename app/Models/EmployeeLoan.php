@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class EmployeeLoan extends Model
 {
@@ -19,7 +19,7 @@ class EmployeeLoan extends Model
         'status',
         'remaining_amount',
         'installment_amount',
-        'notes'
+        'notes',
     ];
 
     protected $casts = [

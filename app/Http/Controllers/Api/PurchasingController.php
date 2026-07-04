@@ -4,20 +4,20 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Api\PurchasingRequest;
 use App\Http\Requests\Api\ReceivePurchaseOrderRequest;
+use App\Models\GoodsReceiptNote;
 use App\Models\ProductReturn;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
+use App\Models\PurchaseRequest;
+use App\Models\PurchaseRequestItem;
 use App\Models\ReturnItem;
+use App\Models\Rfq;
+use App\Models\RfqItem;
 use App\Models\SupplierPayable;
 use App\Services\PurchasingWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Models\GoodsReceiptNote;
-use App\Models\PurchaseRequest;
-use App\Models\PurchaseRequestItem;
-use App\Models\Rfq;
-use App\Models\RfqItem;
 
 class PurchasingController extends ApiResourceController
 {
@@ -105,9 +105,7 @@ class PurchasingController extends ApiResourceController
         ],
     ];
 
-    public function __construct(private readonly PurchasingWorkflowService $purchasingWorkflow)
-    {
-    }
+    public function __construct(private readonly PurchasingWorkflowService $purchasingWorkflow) {}
 
     /**
      * @return array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
@@ -126,6 +124,7 @@ class PurchasingController extends ApiResourceController
     {
         if ($resource === 'goods-receipts' || $resource === 'goods-receipt-notes') {
             $receipt = $this->purchasingWorkflow->processGoodsReceipt($request->validated());
+
             return response()->json([
                 'data' => $receipt->fresh(self::RESOURCES[$resource]['relations'] ?? []),
             ], 201);
@@ -134,7 +133,7 @@ class PurchasingController extends ApiResourceController
         if ($resource === 'purchase-orders') {
             $attributes = $request->validated();
 
-            if (!empty($attributes['rfq_id'])) {
+            if (! empty($attributes['rfq_id'])) {
                 $existingPurchaseOrder = PurchaseOrder::query()
                     ->where('rfq_id', $attributes['rfq_id'])
                     ->first();
@@ -163,12 +162,14 @@ class PurchasingController extends ApiResourceController
         if ($resource === 'returns' && $request->has('qc_status')) {
             $status = $request->input('qc_status');
             $return = ProductReturn::findOrFail($id);
-            
+
             if ($status === 'approved' && $return->qc_status !== 'approved') {
                 $updatedReturn = $this->purchasingWorkflow->approveReturn($id);
+
                 return response()->json(['data' => $updatedReturn->fresh($this->resources()['returns']['relations'] ?? [])]);
             } elseif ($status === 'supplier_claim' && $return->qc_status !== 'supplier_claim') {
                 $updatedReturn = $this->purchasingWorkflow->claimToSupplier($id);
+
                 return response()->json(['data' => $updatedReturn->fresh($this->resources()['returns']['relations'] ?? [])]);
             }
         }
@@ -209,5 +210,4 @@ class PurchasingController extends ApiResourceController
             'to_location_id',
         ];
     }
-
 }

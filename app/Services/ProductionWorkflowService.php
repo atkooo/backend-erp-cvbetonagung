@@ -2,16 +2,16 @@
 
 namespace App\Services;
 
-use App\Models\ProductStock;
-use App\Models\ProductionWorkOrder;
-use App\Models\StockMovement;
 use App\Models\Bom;
+use App\Models\ProductionWorkOrder;
+use App\Models\ProductStock;
+use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 
 class ProductionWorkflowService
 {
     /**
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function receiveWorkOrder(string $id, array $attributes): ProductionWorkOrder
     {
@@ -53,7 +53,7 @@ class ProductionWorkflowService
                 'reference_id' => $workOrder->id,
                 'reference_number' => $workOrder->work_order_number,
                 'handled_by' => $attributes['handled_by'] ?? null,
-                'notes' => 'Penerimaan Hasil Produksi' . (isset($attributes['notes']) ? ': ' . $attributes['notes'] : ''),
+                'notes' => 'Penerimaan Hasil Produksi'.(isset($attributes['notes']) ? ': '.$attributes['notes'] : ''),
                 'movement_at' => $attributes['movement_at'] ?? now()->toDateTimeString(),
             ]);
 
@@ -66,13 +66,17 @@ class ProductionWorkflowService
 
             if ($bom && isset($attributes['source_location_id'])) {
                 foreach ($bom->items as $bomItem) {
-                    if (!$bomItem->component_product_id) continue;
+                    if (! $bomItem->component_product_id) {
+                        continue;
+                    }
 
                     // Calculate quantity to deduct based on BOM ratio
                     // BOM quantity is typically per 1 unit of finished product
                     $qtyToDeduct = (float) $bomItem->quantity * $qtyToReceive;
 
-                    if ($qtyToDeduct <= 0) continue;
+                    if ($qtyToDeduct <= 0) {
+                        continue;
+                    }
 
                     $matStock = ProductStock::query()->firstOrNew([
                         'product_id' => $bomItem->component_product_id,
@@ -91,7 +95,7 @@ class ProductionWorkflowService
                         'reference_id' => $workOrder->id,
                         'reference_number' => $workOrder->work_order_number,
                         'handled_by' => $attributes['handled_by'] ?? null,
-                        'notes' => 'Penggunaan Material Produksi WO: ' . $workOrder->work_order_number,
+                        'notes' => 'Penggunaan Material Produksi WO: '.$workOrder->work_order_number,
                         'movement_at' => $attributes['movement_at'] ?? now()->toDateTimeString(),
                     ]);
                 }

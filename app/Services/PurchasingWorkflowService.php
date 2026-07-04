@@ -2,24 +2,24 @@
 
 namespace App\Services;
 
-use App\Models\ProductStock;
-use App\Models\PurchaseOrder;
-use App\Models\StockMovement;
-use App\Models\SupplierPayable;
-use App\Models\ProductReturn;
-use App\Models\StorageLocation;
-use App\Models\Invoice;
-use App\Models\SalesOrderItem;
-use App\Models\PurchaseOrderItem;
-use App\Models\ReturnItem;
 use App\Models\GoodsReceiptNote;
 use App\Models\GoodsReceiptNoteItem;
+use App\Models\Invoice;
+use App\Models\ProductReturn;
+use App\Models\ProductStock;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderItem;
+use App\Models\ReturnItem;
+use App\Models\SalesOrderItem;
+use App\Models\StockMovement;
+use App\Models\StorageLocation;
+use App\Models\SupplierPayable;
 use Illuminate\Support\Facades\DB;
 
 class PurchasingWorkflowService
 {
     /**
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function receivePurchaseOrder(string $id, array $attributes): PurchaseOrder
     {
@@ -46,7 +46,7 @@ class PurchasingWorkflowService
 
                 $qtyToReceive = $remainingQty;
                 if (isset($attributes['items'])) {
-                    if (!isset($itemQuantities[$item->id]) || $itemQuantities[$item->id] <= 0) {
+                    if (! isset($itemQuantities[$item->id]) || $itemQuantities[$item->id] <= 0) {
                         continue;
                     }
                     $qtyToReceive = $itemQuantities[$item->id];
@@ -102,7 +102,7 @@ class PurchasingWorkflowService
                     SupplierPayable::query()->create([
                         'supplier_id' => $purchaseOrder->supplier_id,
                         'purchase_order_id' => $purchaseOrder->id,
-                        'payable_number' => 'AP-' . date('Ymd') . '-' . rand(1000, 9999),
+                        'payable_number' => 'AP-'.date('Ymd').'-'.rand(1000, 9999),
                         'amount' => $payableAmount,
                         'paid_amount' => 0,
                         'due_date' => now()->addDays(30), // Default due date
@@ -182,7 +182,7 @@ class PurchasingWorkflowService
                         }
                     }
 
-                } else if ($return->type === 'supplier') {
+                } elseif ($return->type === 'supplier') {
                     // Supplier Return: Item leaves Warehouse
                     $qtyToCut = $item->quantity;
                     $stocks = ProductStock::query()
@@ -192,7 +192,9 @@ class PurchasingWorkflowService
                         ->get();
 
                     foreach ($stocks as $stock) {
-                        if ($qtyToCut <= 0) break;
+                        if ($qtyToCut <= 0) {
+                            break;
+                        }
 
                         $cut = min((float) $stock->quantity, $qtyToCut);
                         $stock->quantity = (float) $stock->quantity - $cut;
@@ -255,7 +257,7 @@ class PurchasingWorkflowService
                     ->first();
 
                 if ($po) {
-                    if (!isset($poGroups[$po->id])) {
+                    if (! isset($poGroups[$po->id])) {
                         $poGroups[$po->id] = [
                             'supplier_id' => $po->supplier_id,
                             'purchase_order_id' => $po->id,
@@ -273,11 +275,11 @@ class PurchasingWorkflowService
 
             foreach ($poGroups as $poId => $group) {
                 $supplierReturn = ProductReturn::query()->create([
-                    'return_number' => 'RTN-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -4)),
+                    'return_number' => 'RTN-'.date('Ymd').'-'.strtoupper(substr(uniqid(), -4)),
                     'type' => 'supplier',
                     'supplier_id' => $group['supplier_id'],
                     'purchase_order_id' => $group['purchase_order_id'],
-                    'reason' => 'Otomatis dibuat dari Klaim Pelanggan ' . $customerReturn->return_number,
+                    'reason' => 'Otomatis dibuat dari Klaim Pelanggan '.$customerReturn->return_number,
                     'qc_status' => 'pending_qc',
                     'created_by' => auth()->id() ?? $customerReturn->created_by,
                 ]);
@@ -433,8 +435,9 @@ class PurchasingWorkflowService
         ];
 
         if ($payable === null) {
-            $attributes['payable_number'] = 'AP-' . $purchaseOrder->po_number;
+            $attributes['payable_number'] = 'AP-'.$purchaseOrder->po_number;
             SupplierPayable::query()->create($attributes);
+
             return;
         }
 

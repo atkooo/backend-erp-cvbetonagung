@@ -24,7 +24,7 @@ return new class extends Migration
 
             // Index untuk lookup dokumen referensi (polymorphic)
             // Digunakan saat melacak semua mutasi terkait DO, GRN, dll.
-            if (!Schema::hasIndex('stock_movements', 'idx_stock_movements_reference')) {
+            if (! Schema::hasIndex('stock_movements', 'idx_stock_movements_reference')) {
                 $table->index(['reference_type', 'reference_id'], 'idx_stock_movements_reference');
             }
         });

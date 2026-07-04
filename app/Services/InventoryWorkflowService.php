@@ -2,18 +2,17 @@
 
 namespace App\Services;
 
+use App\Models\Bag;
 use App\Models\ProductStock;
 use App\Models\StockMovement;
 use App\Models\StockOpnameItem;
 use App\Models\StockOpnameSession;
-use App\Models\Bag;
-use App\Models\BagItem;
 use Illuminate\Support\Facades\DB;
 
 class InventoryWorkflowService
 {
     /**
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function adjustStockOpnameItem(string $id, array $attributes): StockOpnameItem
     {

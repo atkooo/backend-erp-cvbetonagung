@@ -34,7 +34,7 @@ class ProductionWorkLog extends Model
             if ($task) {
                 $task->completed_qty += $log->ok_qty;
                 $task->reject_qty += $log->reject_qty;
-                
+
                 if ($task->completed_qty > 0) {
                     $task->status = 'In Progress';
                 }

@@ -7,7 +7,6 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class AuthSeeder extends Seeder
 {
@@ -45,7 +44,7 @@ class AuthSeeder extends Seeder
         $employees = Employee::all();
 
         foreach ($employees as $emp) {
-            if (!$emp->user_id) {
+            if (! $emp->user_id) {
                 // Determine role based on role_name or default to employee
                 $roleId = $employeeRole->id;
                 if (stripos($emp->role_name, 'Manager') !== false || stripos($emp->role_name, 'HRD') !== false) {
@@ -54,13 +53,13 @@ class AuthSeeder extends Seeder
 
                 // Create user
                 // Using employee_number as prefix for email if email doesn't exist
-                $email = strtolower(str_replace(' ', '.', $emp->name)) . '@betonagung.co.id';
-                
+                $email = strtolower(str_replace(' ', '.', $emp->name)).'@betonagung.co.id';
+
                 // Ensure unique email
                 $baseEmail = $email;
                 $counter = 1;
-                while(User::where('email', $email)->exists()) {
-                    $email = str_replace('@', $counter . '@', $baseEmail);
+                while (User::where('email', $email)->exists()) {
+                    $email = str_replace('@', $counter.'@', $baseEmail);
                     $counter++;
                 }
 

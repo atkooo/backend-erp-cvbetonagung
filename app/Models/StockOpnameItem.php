@@ -21,8 +21,6 @@ class StockOpnameItem extends Model
 {
     use HasUuids;
 
-
-
     protected $appends = ['is_adjusted'];
 
     public function session(): BelongsTo

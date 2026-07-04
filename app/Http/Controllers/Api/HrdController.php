@@ -65,7 +65,7 @@ class HrdController extends ApiResourceController
         // Simulate auth by requiring employee_id, and expecting a location QR code
         $request->validate([
             'employee_id' => 'required|exists:employees,id',
-            'location_qr' => 'required|string'
+            'location_qr' => 'required|string',
         ]);
 
         $employee = Employee::find($request->employee_id);
@@ -80,14 +80,14 @@ class HrdController extends ApiResourceController
         $currentTime = now()->toTimeString();
 
         $attendance = Attendance::where('employee_id', $employee->id)
-                                ->where('date', $today)
-                                ->first();
+            ->where('date', $today)
+            ->first();
 
-        if (!$attendance) {
+        if (! $attendance) {
             $shiftStart = '08:00:00';
             $lateMinutes = 0;
             if ($currentTime > $shiftStart) {
-                $lateMinutes = now()->diffInMinutes($today . ' ' . $shiftStart);
+                $lateMinutes = now()->diffInMinutes($today.' '.$shiftStart);
             }
 
             $attendance = Attendance::create([
@@ -95,14 +95,14 @@ class HrdController extends ApiResourceController
                 'date' => $today,
                 'clock_in' => $currentTime,
                 'status' => $lateMinutes > 0 ? 'late' : 'present',
-                'late_minutes' => $lateMinutes
+                'late_minutes' => $lateMinutes,
             ]);
 
             return response()->json([
                 'message' => 'Clock In berhasil.',
                 'employee_name' => $employee->name,
                 'time' => $currentTime,
-                'type' => 'clock_in'
+                'type' => 'clock_in',
             ]);
         } else {
             if ($attendance->clock_out) {
@@ -110,19 +110,19 @@ class HrdController extends ApiResourceController
                     'message' => 'Anda sudah melakukan Clock Out hari ini.',
                     'employee_name' => $employee->name,
                     'time' => $attendance->clock_out,
-                    'type' => 'already_clocked_out'
+                    'type' => 'already_clocked_out',
                 ], 400);
             }
 
             $attendance->update([
-                'clock_out' => $currentTime
+                'clock_out' => $currentTime,
             ]);
 
             return response()->json([
                 'message' => 'Clock Out berhasil.',
                 'employee_name' => $employee->name,
                 'time' => $currentTime,
-                'type' => 'clock_out'
+                'type' => 'clock_out',
             ]);
         }
     }

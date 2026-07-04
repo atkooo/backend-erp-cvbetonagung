@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-
 use App\Models\Setting;
+use Illuminate\Http\Request;
 
 class SettingsController extends Controller
 {
     public function index()
     {
         $settings = Setting::all()->pluck('value', 'key');
+
         return response()->json(['data' => $settings]);
     }
 
@@ -27,6 +27,7 @@ class SettingsController extends Controller
         }
 
         $settings = Setting::all()->pluck('value', 'key');
+
         return response()->json(['data' => $settings]);
     }
 }

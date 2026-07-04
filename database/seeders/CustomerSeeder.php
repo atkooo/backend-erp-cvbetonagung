@@ -13,8 +13,9 @@ class CustomerSeeder extends Seeder
     public function run(): void
     {
         $csvPath = base_path('docs/Customer_GoLive_Data_ERP_CVBetonAgung.csv');
-        if (!file_exists($csvPath)) {
+        if (! file_exists($csvPath)) {
             $this->command->warn("CSV file not found at {$csvPath}.");
+
             return;
         }
 
@@ -25,7 +26,7 @@ class CustomerSeeder extends Seeder
         while (($data = fgetcsv($file, 1000, ';')) !== false) {
             $row++;
             if ($row <= 5) {
-                continue; 
+                continue;
             }
 
             $name = trim($data[1]);
@@ -35,14 +36,14 @@ class CustomerSeeder extends Seeder
 
             $code = trim($data[0]);
             if (empty($code)) {
-                $code = 'CUST' . str_pad($counter++, 4, '0', STR_PAD_LEFT);
+                $code = 'CUST'.str_pad($counter++, 4, '0', STR_PAD_LEFT);
             }
-            
+
             $address = trim($data[2]);
             $city = trim($data[3]);
             $phone = trim($data[4]);
             $email = trim($data[5]);
-            
+
             $customer = [
                 'code' => $code,
                 'name' => mb_convert_encoding($name, 'UTF-8', 'ISO-8859-1'),

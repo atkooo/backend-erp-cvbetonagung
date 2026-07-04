@@ -2,17 +2,17 @@
 
 namespace App\Models;
 
+use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['code', 'name', 'phone', 'email', 'city', 'address', 'status'])]
 class Customer extends Model
 {
-    use SoftDeletes, HasUuids, GeneratesDocumentNumber;
+    use GeneratesDocumentNumber, HasUuids, SoftDeletes;
 
     public function documentNumberPrefix(): string
     {

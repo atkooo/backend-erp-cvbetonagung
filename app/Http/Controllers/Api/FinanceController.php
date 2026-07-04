@@ -5,14 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\Api\FinanceRequest;
 use App\Http\Requests\Api\PaySupplierPayableRequest;
 use App\Http\Requests\Api\VerifyPaymentRequest;
+use App\Models\Account;
+use App\Models\CashTransaction;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Payment;
 use App\Models\ProjectTermin;
-use App\Models\Account;
-use App\Models\CashTransaction;
-use App\Services\FinanceWorkflowService;
 use App\Models\SalesOrder;
+use App\Services\FinanceWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,9 +63,7 @@ class FinanceController extends ApiResourceController
         ],
     ];
 
-    public function __construct(private readonly FinanceWorkflowService $financeWorkflow)
-    {
-    }
+    public function __construct(private readonly FinanceWorkflowService $financeWorkflow) {}
 
     /**
      * @return array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
@@ -89,6 +87,7 @@ class FinanceController extends ApiResourceController
         if ($resource === 'cash-transactions') {
             $transaction = $this->financeWorkflow->recordCashTransaction($request->validated());
             $transaction->load(['account', 'recordedBy']);
+
             return response()->json(['data' => $transaction], 201);
         }
 
@@ -96,13 +95,13 @@ class FinanceController extends ApiResourceController
             $invoiceId = $request->input('invoice_id');
             if ($invoiceId) {
                 // Check if there is already a pending payment for this invoice
-                $pendingPayment = \App\Models\Payment::where('invoice_id', $invoiceId)
+                $pendingPayment = Payment::where('invoice_id', $invoiceId)
                     ->where('status', 'pending')
                     ->first();
-                
+
                 if ($pendingPayment) {
                     return response()->json([
-                        'message' => 'Tidak dapat membuat pembayaran baru karena masih ada pembayaran berstatus Pending untuk Invoice ini.'
+                        'message' => 'Tidak dapat membuat pembayaran baru karena masih ada pembayaran berstatus Pending untuk Invoice ini.',
                     ], 422);
                 }
             }
@@ -128,7 +127,7 @@ class FinanceController extends ApiResourceController
     protected function storeWithItems(string $resource, array $attributes): JsonResponse
     {
         $config = $this->resourceConfig($resource);
-        /** @var class-string<\Illuminate\Database\Eloquent\Model> $modelClass */
+        /** @var class-string<Model> $modelClass */
         $modelClass = $config['model'];
 
         $hasItems = array_key_exists('items', $attributes);
@@ -136,13 +135,13 @@ class FinanceController extends ApiResourceController
         unset($attributes['items']);
 
         $model = DB::transaction(function () use ($modelClass, $attributes, $items, $resource, $hasItems) {
-            /** @var \Illuminate\Database\Eloquent\Model $model */
+            /** @var Model $model */
             $model = $modelClass::query()->create($attributes);
 
-            if ($resource === 'invoices' && !empty($attributes['sales_order_id'])) {
+            if ($resource === 'invoices' && ! empty($attributes['sales_order_id'])) {
                 $salesOrder = SalesOrder::query()->with('items')->find($attributes['sales_order_id']);
                 if ($salesOrder) {
-                    if (!$hasItems || empty($items)) {
+                    if (! $hasItems || empty($items)) {
                         $subtotal = 0;
                         foreach ($salesOrder->items as $soItem) {
                             $model->items()->create([
@@ -208,7 +207,7 @@ class FinanceController extends ApiResourceController
         $items = $attributes['items'] ?? null;
         unset($attributes['items']);
 
-        DB::transaction(function () use ($model, $attributes, $items, $resource, $hasItems) {
+        DB::transaction(function () use ($model, $attributes, $items, $hasItems) {
             $model->fill($attributes);
             $model->save();
 

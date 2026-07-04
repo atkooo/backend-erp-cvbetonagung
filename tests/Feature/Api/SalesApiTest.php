@@ -5,10 +5,10 @@ namespace Tests\Feature\Api;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ProductStock;
+use App\Models\Quotation;
 use App\Models\StockMovement;
 use App\Models\StorageLocation;
 use App\Models\User;
-use App\Models\Quotation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -347,9 +347,9 @@ class SalesApiTest extends TestCase
                     'product_id' => $product->id,
                     'quantity' => 2,
                     'unit_price' => 150000,
-                    'description' => 'Test Item'
-                ]
-            ]
+                    'description' => 'Test Item',
+                ],
+            ],
         ]);
 
         $response
@@ -385,9 +385,9 @@ class SalesApiTest extends TestCase
                     'product_id' => $product->id,
                     'quantity' => 3,
                     'unit_price' => 120000,
-                    'description' => 'SO Test Item'
-                ]
-            ]
+                    'description' => 'SO Test Item',
+                ],
+            ],
         ]);
 
         $response

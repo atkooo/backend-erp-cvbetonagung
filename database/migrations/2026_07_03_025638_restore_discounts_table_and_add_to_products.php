@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('discounts')) {
+        if (! Schema::hasTable('discounts')) {
             Schema::create('discounts', function (Blueprint $table) {
                 $table->uuid('id')->primary();
                 $table->string('name');
@@ -29,7 +29,7 @@ return new class extends Migration
             if (Schema::hasColumn('products', 'discount_value')) {
                 $table->dropColumn('discount_value');
             }
-            if (!Schema::hasColumn('products', 'discount_id')) {
+            if (! Schema::hasColumn('products', 'discount_id')) {
                 $table->foreignUuid('discount_id')->nullable()->constrained('discounts')->nullOnDelete()->after('selling_price');
             }
         });

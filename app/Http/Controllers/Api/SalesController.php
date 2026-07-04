@@ -9,11 +9,15 @@ use App\Http\Requests\Api\SalesRequest;
 use App\Http\Requests\Api\ShipDeliveryOrderRequest;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
+use App\Models\ProductStock;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
+use App\Enums\DeliveryOrderStatus;
+use App\Enums\SalesOrderStatus;
 use App\Services\SalesWorkflowService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -79,11 +83,13 @@ class SalesController extends ApiResourceController
 
         if ($resource === 'quotations') {
             $model = $service->createQuotation($data);
+
             return response()->json(['data' => $model], 201);
         }
 
         if ($resource === 'sales-orders') {
             $model = $service->createSalesOrder($data);
+
             return response()->json(['data' => $model], 201);
         }
 
@@ -104,11 +110,13 @@ class SalesController extends ApiResourceController
 
         if ($resource === 'quotations') {
             $model = $service->updateQuotation($id, $data);
+
             return response()->json(['data' => $model]);
         }
 
         if ($resource === 'sales-orders') {
             $model = $service->updateSalesOrder($id, $data);
+
             return response()->json(['data' => $model]);
         }
 
@@ -117,24 +125,20 @@ class SalesController extends ApiResourceController
             $model = $this->findResourceModel($config, $id);
 
             // Validation for ready_to_load
-            if (($data['status'] ?? '') === 'ready_to_load' && $model->status !== 'ready_to_load') {
+            if (($data['status'] ?? '') === DeliveryOrderStatus::ReadyToLoad->value && $model->status !== DeliveryOrderStatus::ReadyToLoad->value) {
                 $model->load('items.product');
                 foreach ($model->items as $item) {
-                    $totalStock = \App\Models\ProductStock::where('product_id', $item->product_id)->sum('quantity');
-                    if ($totalStock < $item->quantity) {
-                        $productName = $item->product->name ?? 'Unknown';
-                        abort(422, "Stok tidak mencukupi untuk produk {$productName}. Dibutuhkan: {$item->quantity}, Tersedia: {$totalStock}. Silakan buat Work Order/Purchase Order terlebih dahulu.");
-                    }
+                    $service->checkProductStock($item->product_id, $item->quantity);
                 }
             }
 
             DB::transaction(function () use ($model, $data) {
                 $model->update($data);
 
-                if (($data['status'] ?? '') === 'received' && $model->sales_order_id) {
+                if (($data['status'] ?? '') === DeliveryOrderStatus::Received->value && $model->sales_order_id) {
                     $salesOrder = SalesOrder::query()->find($model->sales_order_id);
                     if ($salesOrder) {
-                        $salesOrder->forceFill(['status' => 'completed'])->save();
+                        $salesOrder->forceFill(['status' => SalesOrderStatus::Completed->value])->save();
                     }
                 }
             });
@@ -228,15 +232,15 @@ class SalesController extends ApiResourceController
         ];
     }
 
-    protected function applyFilters(\Illuminate\Database\Eloquent\Builder $query, Request $request, array $config): void
+    protected function applyFilters(Builder $query, Request $request, array $config): void
     {
         parent::applyFilters($query, $request, $config);
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
-            $dateColumn = match($config['model']) {
-                \App\Models\Quotation::class => 'quotation_date',
-                \App\Models\SalesOrder::class => 'order_date',
-                \App\Models\DeliveryOrder::class => 'delivery_date',
+            $dateColumn = match ($config['model']) {
+                Quotation::class => 'quotation_date',
+                SalesOrder::class => 'order_date',
+                DeliveryOrder::class => 'delivery_date',
                 default => 'created_at',
             };
             $query->whereBetween($dateColumn, [$request->start_date, $request->end_date]);

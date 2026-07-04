@@ -6,7 +6,6 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
-use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 
 abstract class TestCase extends BaseTestCase
@@ -14,8 +13,8 @@ abstract class TestCase extends BaseTestCase
     private ?string $apiToken = null;
 
     /**
-     * @param array<string, mixed> $data
-     * @param array<string, string> $headers
+     * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $headers
      */
     public function json($method, $uri, array $data = [], array $headers = [], $options = 0): TestResponse
     {
@@ -27,7 +26,7 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
-     * @param array<string, string> $headers
+     * @param  array<string, string>  $headers
      */
     private function shouldAttachApiToken(string $uri, array $headers): bool
     {

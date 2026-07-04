@@ -2,24 +2,24 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Dashboard\DashboardSummaryController;
-use App\Http\Controllers\Api\FinanceController;
 use App\Http\Controllers\Api\Finance\FinanceQueryController;
+use App\Http\Controllers\Api\FinanceController;
 use App\Http\Controllers\Api\HrdController;
-use App\Http\Controllers\Api\PayrollController;
 use App\Http\Controllers\Api\IdentityController;
-use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\Inventory\InventoryQueryController;
+use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\Master\MasterQueryController;
 use App\Http\Controllers\Api\MasterDataController;
 use App\Http\Controllers\Api\ProductImageController;
-use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProductionController;
-use App\Http\Controllers\Api\PurchasingController;
+use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\Purchasing\PurchasingQueryController;
+use App\Http\Controllers\Api\PurchasingController;
 use App\Http\Controllers\Api\Reports\ReportsController;
 use App\Http\Controllers\Api\SalesController;
-
+use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\SupportController;
+use App\Http\Controllers\Api\SystemController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', function () {
@@ -38,11 +38,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('profile', 'updateProfile');
     });
 
-    Route::prefix('system')->controller(\App\Http\Controllers\Api\SystemController::class)->group(function () {
+    Route::prefix('system')->controller(SystemController::class)->group(function () {
         Route::get('backup', 'exportBackup');
     });
 
-    Route::prefix('settings')->controller(\App\Http\Controllers\Api\SettingsController::class)->group(function () {
+    Route::prefix('settings')->controller(SettingsController::class)->group(function () {
         Route::get('/', 'index');
         Route::post('/', 'store');
     });
@@ -56,7 +56,6 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
         Route::get('suppliers', 'suppliers');
         Route::get('products', 'products');
     });
-
 
     Route::prefix('purchasing')->controller(PurchasingQueryController::class)->group(function () {
         Route::get('receivings', 'receivings');

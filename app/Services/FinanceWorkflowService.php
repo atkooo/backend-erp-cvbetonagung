@@ -2,17 +2,17 @@
 
 namespace App\Services;
 
+use App\Models\Account;
+use App\Models\CashTransaction;
 use App\Models\Invoice;
 use App\Models\Payment;
-use App\Models\CashTransaction;
-use App\Models\Account;
 use App\Models\SupplierPayable;
 use Illuminate\Support\Facades\DB;
 
 class FinanceWorkflowService
 {
     /**
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function verifyPayment(string $id, array $attributes): Payment
     {
@@ -56,7 +56,7 @@ class FinanceWorkflowService
                     'transaction_date' => $payment->payment_date,
                     'reference_type' => 'App\Models\Payment',
                     'reference_id' => $payment->id,
-                    'description' => 'Penerimaan pembayaran faktur ' . ($invoice->invoice_number ?? $payment->invoice_id),
+                    'description' => 'Penerimaan pembayaran faktur '.($invoice->invoice_number ?? $payment->invoice_id),
                 ]);
             }
 
@@ -65,7 +65,7 @@ class FinanceWorkflowService
     }
 
     /**
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function paySupplierPayable(string $id, array $attributes): SupplierPayable
     {
@@ -89,7 +89,7 @@ class FinanceWorkflowService
                 'status' => $this->payableStatusFor($newPaidAmount, (float) $payable->amount),
             ])->save();
 
-            if (!empty($attributes['account_id'])) {
+            if (! empty($attributes['account_id'])) {
                 $this->recordCashTransaction([
                     'account_id' => $attributes['account_id'],
                     'type' => 'out',
@@ -97,7 +97,7 @@ class FinanceWorkflowService
                     'transaction_date' => $attributes['paid_at'] ?? now()->toDateString(),
                     'reference_type' => 'App\Models\SupplierPayable',
                     'reference_id' => $payable->id,
-                    'description' => $attributes['notes'] ?? 'Pembayaran hutang supplier ' . $payable->payable_number,
+                    'description' => $attributes['notes'] ?? 'Pembayaran hutang supplier '.$payable->payable_number,
                 ]);
             }
 
@@ -132,16 +132,16 @@ class FinanceWorkflowService
     }
 
     /**
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     public function recordCashTransaction(array $attributes): CashTransaction
     {
         return DB::transaction(function () use ($attributes): CashTransaction {
             $account = Account::query()->lockForUpdate()->findOrFail($attributes['account_id']);
-            
+
             if (empty($attributes['transaction_number'])) {
                 $prefix = $attributes['type'] === 'in' ? 'CASH-IN-' : 'CASH-OUT-';
-                $attributes['transaction_number'] = $prefix . date('Ym') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+                $attributes['transaction_number'] = $prefix.date('Ym').'-'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
             }
 
             if (empty($attributes['category'])) {

@@ -6,6 +6,7 @@ use App\Http\Requests\Api\ProjectRequest;
 use App\Models\Project;
 use App\Models\ProjectBudgetItem;
 use App\Models\ProjectDocument;
+use App\Models\ProjectTask;
 use App\Models\ProjectTimeline;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +26,7 @@ class ProjectController extends ApiResourceController
             'relations' => ['customer', 'quotation', 'salesOrder', 'timelines', 'documents', 'budgetItems', 'termins', 'tasks'],
         ],
         'project-tasks' => [
-            'model' => \App\Models\ProjectTask::class,
+            'model' => ProjectTask::class,
             'searchable' => ['task_code', 'task_name', 'status', 'notes'],
             'sortable' => ['sequence', 'task_code', 'status', 'target_date', 'completed_date', 'created_at'],
             'relations' => ['project'],

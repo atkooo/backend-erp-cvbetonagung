@@ -2,12 +2,12 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use App\Models\ProductStock;
 use App\Models\StockMovement;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ResetStockMovements extends Command
 {
@@ -30,8 +30,9 @@ class ResetStockMovements extends Command
      */
     public function handle()
     {
-        if (!$this->confirm('Apakah Anda yakin ingin menghapus semua data mutasi stok dan meresetnya menjadi Stock Awal?')) {
+        if (! $this->confirm('Apakah Anda yakin ingin menghapus semua data mutasi stok dan meresetnya menjadi Stock Awal?')) {
             $this->info('Operasi dibatalkan.');
+
             return;
         }
 
@@ -50,7 +51,7 @@ class ResetStockMovements extends Command
 
             // 2. Ambil semua stok produk yang bernilai > 0
             $stocks = ProductStock::where('quantity', '>', 0)->get();
-            $this->info('Ditemukan ' . $stocks->count() . ' record stok produk (quantity > 0).');
+            $this->info('Ditemukan '.$stocks->count().' record stok produk (quantity > 0).');
 
             $movements = [];
             $now = Carbon::now();
@@ -66,7 +67,7 @@ class ResetStockMovements extends Command
                     'reference_type' => null,
                     'reference_id' => null,
                     'reference_number' => 'STOCK-AWAL',
-                    'handled_by' => null, 
+                    'handled_by' => null,
                     'notes' => 'Stok Awal Sistem',
                     'movement_at' => $now,
                 ];
@@ -84,7 +85,7 @@ class ResetStockMovements extends Command
             $this->info('Berhasil mereset riwayat mutasi dan membuat Stock Awal baru!');
         } catch (\Exception $e) {
             DB::rollBack();
-            $this->error('Terjadi kesalahan: ' . $e->getMessage());
+            $this->error('Terjadi kesalahan: '.$e->getMessage());
         }
     }
 }

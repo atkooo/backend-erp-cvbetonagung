@@ -92,7 +92,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('goods_receipt_note_items');
         Schema::dropIfExists('goods_receipt_notes');
-        
+
         Schema::table('purchase_orders', function (Blueprint $table) {
             $table->dropForeign(['rfq_id']);
             $table->dropForeign(['purchase_request_id']);

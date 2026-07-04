@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
-use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -25,7 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Project extends Model
 {
-    use HasUuids, GeneratesDocumentNumber;
+    use GeneratesDocumentNumber, HasUuids;
 
     protected static function booted(): void
     {
@@ -42,8 +42,8 @@ class Project extends Model
             $seq = 1;
             foreach ($stages as $stage) {
                 $prjNum = str_replace('PRJ-', '', $project->code);
-                $taskCode = $stage['code_prefix'] . '-' . $prjNum;
-                
+                $taskCode = $stage['code_prefix'].'-'.$prjNum;
+
                 ProjectTask::create([
                     'project_id' => $project->id,
                     'task_code' => $taskCode,

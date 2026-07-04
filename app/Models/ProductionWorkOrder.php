@@ -2,14 +2,12 @@
 
 namespace App\Models;
 
+use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
-use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\Bom;
-use App\Models\ProjectBudgetItem;
 
 #[Fillable([
     'work_order_number',
@@ -25,7 +23,7 @@ use App\Models\ProjectBudgetItem;
 ])]
 class ProductionWorkOrder extends Model
 {
-    use HasUuids, GeneratesDocumentNumber;
+    use GeneratesDocumentNumber, HasUuids;
 
     protected static function booted(): void
     {
@@ -41,8 +39,8 @@ class ProductionWorkOrder extends Model
             foreach ($tasks as $task) {
                 // Generate a unique short code, e.g., TSK1-202606-0001
                 $woNum = str_replace('WO-', '', $workOrder->work_order_number);
-                $taskCode = $task['code_prefix'] . '-' . $woNum;
-                
+                $taskCode = $task['code_prefix'].'-'.$woNum;
+
                 ProductionWorkOrderTask::create([
                     'work_order_id' => $workOrder->id,
                     'task_code' => $taskCode,
@@ -58,16 +56,16 @@ class ProductionWorkOrder extends Model
                 $bom = Bom::where('product_id', $workOrder->product_id)
                     ->orderBy('effective_from', 'desc')
                     ->first();
-                
+
                 $unitCost = $bom ? $bom->total_cost : 0;
                 $estimatedCost = $unitCost * $workOrder->target_qty;
 
                 ProjectBudgetItem::create([
                     'project_id' => $workOrder->project_id,
-                    'component' => 'Biaya Produksi ' . $workOrder->work_order_number,
+                    'component' => 'Biaya Produksi '.$workOrder->work_order_number,
                     'budget_amount' => $estimatedCost,
                     'actual_amount' => 0,
-                    'notes' => 'Otomatis di-generate dari Work Order ' . $workOrder->work_order_number,
+                    'notes' => 'Otomatis di-generate dari Work Order '.$workOrder->work_order_number,
                 ]);
             }
         });
@@ -76,14 +74,14 @@ class ProductionWorkOrder extends Model
             // Update actual_amount di RAB Proyek jika completed_qty atau target_qty berubah
             if ($workOrder->project_id && ($workOrder->isDirty('completed_qty') || $workOrder->isDirty('target_qty'))) {
                 $budgetItem = ProjectBudgetItem::where('project_id', $workOrder->project_id)
-                    ->where('component', 'Biaya Produksi ' . $workOrder->work_order_number)
+                    ->where('component', 'Biaya Produksi '.$workOrder->work_order_number)
                     ->first();
 
                 if ($budgetItem) {
                     $bom = Bom::where('product_id', $workOrder->product_id)
                         ->orderBy('effective_from', 'desc')
                         ->first();
-                    
+
                     $unitCost = $bom ? $bom->total_cost : 0;
 
                     $budgetItem->update([

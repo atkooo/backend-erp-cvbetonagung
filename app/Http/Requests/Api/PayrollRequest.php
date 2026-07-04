@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class PayrollRequest extends FormRequest
@@ -17,15 +18,15 @@ class PayrollRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         $resource = $this->route('resource');
-        
+
         return match ($resource) {
             'salary-components' => [
-                'code' => 'required|string|max:50|unique:salary_components,code,' . $this->route('id'),
+                'code' => 'required|string|max:50|unique:salary_components,code,'.$this->route('id'),
                 'name' => 'required|string|max:255',
                 'type' => 'required|in:allowance,deduction',
                 'is_taxable' => 'boolean',
@@ -56,7 +57,7 @@ class PayrollRequest extends FormRequest
             ],
             'employee-loans' => [
                 'employee_id' => 'required|exists:employees,id',
-                'loan_number' => 'required|string|unique:employee_loans,loan_number,' . $this->route('id'),
+                'loan_number' => 'required|string|unique:employee_loans,loan_number,'.$this->route('id'),
                 'amount' => 'required|numeric|min:0',
                 'reason' => 'nullable|string',
                 'date' => 'required|date',
@@ -71,7 +72,7 @@ class PayrollRequest extends FormRequest
                 'type' => 'in:weekday,weekend,holiday',
             ],
             'payroll-settings' => [
-                'key' => 'required|string|unique:payroll_settings,key,' . $this->route('id'),
+                'key' => 'required|string|unique:payroll_settings,key,'.$this->route('id'),
                 'value' => 'required|array',
                 'description' => 'nullable|string',
             ],

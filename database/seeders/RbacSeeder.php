@@ -248,7 +248,7 @@ class RbacSeeder extends Seeder
     }
 
     /**
-     * @param array<string, array<string, Permission>> $permissions
+     * @param  array<string, array<string, Permission>>  $permissions
      * @return array<string, Role>
      */
     private function seedRoles(array $permissions): array
@@ -272,8 +272,8 @@ class RbacSeeder extends Seeder
     }
 
     /**
-     * @param array<string, array<string, Permission>> $permissions
-     * @param array<string, string> $moduleAccess
+     * @param  array<string, array<string, Permission>>  $permissions
+     * @param  array<string, string>  $moduleAccess
      * @return array<string, array{access_level: string}>
      */
     private function permissionPivot(array $permissions, array $moduleAccess): array
@@ -300,7 +300,7 @@ class RbacSeeder extends Seeder
     }
 
     /**
-     * @param array<string, Role> $roles
+     * @param  array<string, Role>  $roles
      */
     private function seedUsers(array $roles): void
     {

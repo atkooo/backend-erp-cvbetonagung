@@ -44,7 +44,7 @@ abstract class ApiResourceController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     protected function storeResource(string $resource, array $attributes): JsonResponse
     {
@@ -63,7 +63,7 @@ abstract class ApiResourceController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     protected function updateResource(string $resource, string $id, array $attributes): JsonResponse
     {
@@ -93,7 +93,7 @@ abstract class ApiResourceController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $config
+     * @param  array<string, mixed>  $config
      */
     protected function resourceQuery(array $config): Builder
     {
@@ -104,7 +104,7 @@ abstract class ApiResourceController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $config
+     * @param  array<string, mixed>  $config
      */
     protected function applyFilters(Builder $query, Request $request, array $config): void
     {
@@ -135,7 +135,7 @@ abstract class ApiResourceController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $config
+     * @param  array<string, mixed>  $config
      */
     protected function findResourceModel(array $config, string $id): Model
     {
@@ -155,7 +155,7 @@ abstract class ApiResourceController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $config
+     * @param  array<string, mixed>  $config
      * @return array{0: string, 1: string}
      */
     protected function sortClause(Request $request, array $config): array

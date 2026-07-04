@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class PayrollDetail extends Model
 {
@@ -15,7 +15,7 @@ class PayrollDetail extends Model
         'salary_component_id',
         'type',
         'amount',
-        'notes'
+        'notes',
     ];
 
     protected $casts = [

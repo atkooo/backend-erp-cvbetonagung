@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
-use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class Payment extends Model
 {
-    use HasUuids, GeneratesDocumentNumber;
+    use GeneratesDocumentNumber, HasUuids;
 
     public function documentNumberPrefix(): string
     {

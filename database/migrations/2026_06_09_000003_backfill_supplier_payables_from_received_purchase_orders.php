@@ -25,9 +25,9 @@ return new class extends Migration
             ->get();
 
         foreach ($purchaseOrders as $purchaseOrder) {
-            $payableNumber = 'AP-' . $purchaseOrder->po_number;
+            $payableNumber = 'AP-'.$purchaseOrder->po_number;
             if (DB::table('supplier_payables')->where('payable_number', $payableNumber)->exists()) {
-                $payableNumber .= '-' . Str::upper(Str::random(4));
+                $payableNumber .= '-'.Str::upper(Str::random(4));
             }
 
             DB::table('supplier_payables')->insert([

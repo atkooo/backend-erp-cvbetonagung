@@ -108,9 +108,9 @@ return new class extends Migration
 
         Schema::table('employees', function (Blueprint $table) {
             $table->dropColumn([
-                'gender', 'place_of_birth', 'date_of_birth', 'marital_status', 
-                'religion', 'blood_type', 'id_card_number', 'tax_id_number', 
-                'bank_name', 'bank_account'
+                'gender', 'place_of_birth', 'date_of_birth', 'marital_status',
+                'religion', 'blood_type', 'id_card_number', 'tax_id_number',
+                'bank_name', 'bank_account',
             ]);
         });
     }

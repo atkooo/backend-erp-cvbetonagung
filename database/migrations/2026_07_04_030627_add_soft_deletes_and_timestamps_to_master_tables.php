@@ -22,7 +22,7 @@ return new class extends Migration
             'units',
             'warehouses',
             'storage_locations',
-            'products'
+            'products',
         ];
 
         foreach ($tables as $tableName) {
@@ -44,7 +44,7 @@ return new class extends Migration
             'units',
             'warehouses',
             'storage_locations',
-            'products'
+            'products',
         ];
 
         foreach ($tables as $tableName) {

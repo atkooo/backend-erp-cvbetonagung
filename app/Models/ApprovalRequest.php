@@ -27,6 +27,7 @@ class ApprovalRequest extends Model
     use HasUuids;
 
     public const CREATED_AT = null;
+
     public const UPDATED_AT = null;
 
     public function requester(): BelongsTo

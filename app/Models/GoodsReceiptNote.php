@@ -2,14 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Traits\GeneratesDocumentNumber;
 
 class GoodsReceiptNote extends Model
 {
-    use HasFactory, HasUuids, GeneratesDocumentNumber;
+    use GeneratesDocumentNumber, HasFactory, HasUuids;
 
     public function documentNumberPrefix(): string
     {

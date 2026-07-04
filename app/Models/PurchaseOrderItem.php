@@ -21,6 +21,7 @@ class PurchaseOrderItem extends Model
     use HasUuids;
 
     public const CREATED_AT = null;
+
     public const UPDATED_AT = null;
 
     protected $appends = [

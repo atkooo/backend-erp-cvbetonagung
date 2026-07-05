@@ -138,10 +138,11 @@ class FinanceWorkflowService
                         $subtotal += $soItem->subtotal;
                     }
                     $taxAmount = $attributes['tax_amount'] ?? 0;
+                    $globalDiscountAmount = (float) ($salesOrder->global_discount_amount ?? 0);
                     $invoice->forceFill([
                         'subtotal' => $subtotal,
                         'tax_amount' => $taxAmount,
-                        'total' => $subtotal + $taxAmount,
+                        'total' => max(0, $subtotal + $taxAmount - $globalDiscountAmount),
                     ])->save();
 
                     return $invoice;

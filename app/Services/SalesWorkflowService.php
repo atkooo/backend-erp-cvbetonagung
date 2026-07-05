@@ -123,10 +123,11 @@ class SalesWorkflowService
 
             if (! empty($items)) {
                 [$subtotal, $taxAmount] = $this->createLineItems($quotation, 'quotation', $items);
+                $globalDiscountAmount = (float) ($attributes['global_discount_amount'] ?? 0);
                 $quotation->forceFill([
                     'subtotal' => $subtotal,
                     'tax_amount' => $taxAmount,
-                    'total' => $subtotal + $taxAmount,
+                    'total' => max(0, $subtotal + $taxAmount - $globalDiscountAmount),
                 ])->save();
             }
 
@@ -154,10 +155,11 @@ class SalesWorkflowService
                 $quotation->items()->delete();
                 $taxAmount = $attributes['tax_amount'] ?? $quotation->tax_amount ?? 0;
                 [$subtotal] = $this->createLineItems($quotation, 'quotation', $items, $taxAmount);
+                $globalDiscountAmount = (float) ($attributes['global_discount_amount'] ?? $quotation->global_discount_amount ?? 0);
                 $quotation->forceFill([
                     'subtotal' => $subtotal,
                     'tax_amount' => $taxAmount,
-                    'total' => $subtotal + $taxAmount,
+                    'total' => max(0, $subtotal + $taxAmount - $globalDiscountAmount),
                 ])->save();
             }
 
@@ -191,7 +193,8 @@ class SalesWorkflowService
                 }
             } elseif ($hasItems && ! empty($items)) {
                 [$subtotal] = $this->createLineItems($salesOrder, 'sales-order', $items);
-                $salesOrder->forceFill(['total' => $subtotal])->save();
+                $globalDiscountAmount = (float) ($attributes['global_discount_amount'] ?? 0);
+                $salesOrder->forceFill(['total' => max(0, $subtotal - $globalDiscountAmount)])->save();
             }
 
             return $salesOrder->fresh(['customer', 'quotation', 'items.product', 'deliveryOrders']) ?? $salesOrder;
@@ -217,7 +220,8 @@ class SalesWorkflowService
             if ($hasItems && $items !== null) {
                 $salesOrder->items()->delete();
                 [$subtotal] = $this->createLineItems($salesOrder, 'sales-order', $items);
-                $salesOrder->forceFill(['total' => $subtotal])->save();
+                $globalDiscountAmount = (float) ($salesOrder->global_discount_amount ?? 0);
+                $salesOrder->forceFill(['total' => max(0, $subtotal - $globalDiscountAmount)])->save();
             }
 
             return $salesOrder->fresh(['customer', 'quotation', 'items.product', 'deliveryOrders']) ?? $salesOrder;
@@ -411,9 +415,9 @@ class SalesWorkflowService
             $this->deductTakeAwayStock($readyTakeAwayItems, $salesOrder);
             $this->createPosDeliveryOrders($salesOrder, $readyDeliveryItems, $poItems);
 
-            $invoice = $this->createPosInvoice($salesOrder, $attributes, $subtotal);
+            $invoice = $this->createPosInvoice($salesOrder, $attributes, $subtotal, $finalTotal);
 
-            if (($amountPaid = (float) ($attributes['amount_paid'] ?? $subtotal)) > 0) {
+            if (($amountPaid = (float) ($attributes['amount_paid'] ?? $finalTotal)) > 0) {
                 app(FinanceWorkflowService::class)->recordCashTransaction([
                     'account_id' => $attributes['payment_account_id'],
                     'transaction_date' => $salesOrder->order_date,
@@ -574,10 +578,10 @@ class SalesWorkflowService
      *
      * @param  array<string, mixed>  $attributes
      */
-    private function createPosInvoice(SalesOrder $salesOrder, array $attributes, float $subtotal): Invoice
+    private function createPosInvoice(SalesOrder $salesOrder, array $attributes, float $subtotal, float $finalTotal): Invoice
     {
-        $amountPaid = isset($attributes['amount_paid']) ? (float) $attributes['amount_paid'] : $subtotal;
-        $invoiceStatus = $amountPaid >= $subtotal ? InvoiceStatus::Paid->value : InvoiceStatus::Partial->value;
+        $amountPaid = isset($attributes['amount_paid']) ? (float) $attributes['amount_paid'] : $finalTotal;
+        $invoiceStatus = $amountPaid >= $finalTotal ? InvoiceStatus::Paid->value : InvoiceStatus::Partial->value;
 
         $invoice = Invoice::query()->create([
             'sales_order_id' => $salesOrder->id,
@@ -586,9 +590,9 @@ class SalesWorkflowService
             'due_date' => $salesOrder->order_date,
             'subtotal' => $subtotal,
             'tax_amount' => 0,
-            'total' => $subtotal,
+            'total' => $finalTotal,
             'status' => $invoiceStatus,
-            'paid_amount' => min($amountPaid, $subtotal),
+            'paid_amount' => min($amountPaid, $finalTotal),
         ]);
 
         foreach ($salesOrder->items as $item) {

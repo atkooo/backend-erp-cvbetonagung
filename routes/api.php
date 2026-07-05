@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\ProductionController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\Purchasing\PurchasingQueryController;
 use App\Http\Controllers\Api\PurchasingController;
+use App\Http\Controllers\Api\Reports\ExecSalesReportController;
 use App\Http\Controllers\Api\Reports\ReportsController;
 use App\Http\Controllers\Api\SalesController;
 use App\Http\Controllers\Api\SettingsController;
@@ -75,6 +76,13 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
     });
 
     Route::get('reports', ReportsController::class);
+
+    Route::prefix('reports/exec')->controller(ExecSalesReportController::class)->group(function () {
+        Route::get('daily-sales', 'dailySales');
+        Route::get('gross-profit', 'grossProfit');
+        Route::get('ar-aging', 'arAging');
+        Route::get('top-products', 'topProducts');
+    });
 
     Route::prefix('identity')->controller(IdentityController::class)->group(function () {
         Route::get('role-permissions/{roleId}/{permissionId}', 'showRolePermission')

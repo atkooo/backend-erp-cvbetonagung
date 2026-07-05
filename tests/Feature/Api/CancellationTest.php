@@ -38,7 +38,7 @@ class CancellationTest extends TestCase
         /** @var Quotation $quotation */
         $quotation = Quotation::factory()->create([
             'customer_id' => $customer->id,
-            'status'      => 'draft',
+            'status' => 'draft',
         ]);
 
         $this->actingAs($this->admin)
@@ -49,9 +49,9 @@ class CancellationTest extends TestCase
             ->assertJsonPath('data.status', 'cancelled');
 
         $this->assertDatabaseHas('quotations', [
-            'id'            => $quotation->id,
-            'status'        => 'cancelled',
-            'cancelled_by'  => $this->admin->id,
+            'id' => $quotation->id,
+            'status' => 'cancelled',
+            'cancelled_by' => $this->admin->id,
             'cancel_reason' => 'Test pembatalan',
         ]);
         $this->assertNotNull($quotation->fresh()->cancelled_at);
@@ -63,7 +63,7 @@ class CancellationTest extends TestCase
 
         $quotation = Quotation::factory()->create([
             'customer_id' => $customer->id,
-            'status'      => 'approved',
+            'status' => 'approved',
         ]);
 
         $this->actingAs($this->admin)
@@ -77,7 +77,7 @@ class CancellationTest extends TestCase
 
         $quotation = Quotation::factory()->create([
             'customer_id' => $customer->id,
-            'status'      => 'draft',
+            'status' => 'draft',
         ]);
 
         $this->postJson("/api/sales/quotations/{$quotation->id}/cancel", [], ['Authorization' => ''])
@@ -89,26 +89,26 @@ class CancellationTest extends TestCase
     public function test_cancel_sales_order_cascades_to_delivery_and_invoice(): void
     {
         $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
-        $product  = Product::query()->where('sku', 'PRC-0001')->firstOrFail();
+        $product = Product::query()->where('sku', 'PRC-0001')->firstOrFail();
 
         /** @var SalesOrder $so */
         $so = SalesOrder::factory()->create([
             'customer_id' => $customer->id,
-            'status'      => 'approved',
+            'status' => 'approved',
         ]);
 
         /** @var DeliveryOrder $do */
         $do = DeliveryOrder::factory()->create([
             'sales_order_id' => $so->id,
-            'customer_id'    => $customer->id,
-            'status'         => 'ready_to_load',
+            'customer_id' => $customer->id,
+            'status' => 'ready_to_load',
         ]);
 
         /** @var Invoice $invoice */
         $invoice = Invoice::factory()->create([
             'sales_order_id' => $so->id,
-            'customer_id'    => $customer->id,
-            'status'         => 'unpaid',
+            'customer_id' => $customer->id,
+            'status' => 'unpaid',
         ]);
 
         $this->actingAs($this->admin)
@@ -120,72 +120,84 @@ class CancellationTest extends TestCase
 
         // SO cancelled
         $this->assertDatabaseHas('sales_orders', [
-            'id'     => $so->id,
+            'id' => $so->id,
             'status' => 'cancelled',
         ]);
 
         // DO cascade cancelled
         $this->assertDatabaseHas('delivery_orders', [
-            'id'     => $do->id,
+            'id' => $do->id,
             'status' => 'cancelled',
         ]);
 
         // Invoice cascade cancelled
         $this->assertDatabaseHas('invoices', [
-            'id'     => $invoice->id,
+            'id' => $invoice->id,
             'status' => 'cancelled',
         ]);
     }
 
-    public function test_cancel_sales_order_fails_when_invoice_is_paid(): void
+    /**
+     * Sesuai aturan baru: SO dengan invoice berstatus 'paid' TETAP bisa dibatalkan (cascade).
+     */
+    public function test_cancel_sales_order_also_cancels_paid_invoice(): void
     {
         $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
 
         $so = SalesOrder::factory()->create([
             'customer_id' => $customer->id,
-            'status'      => 'approved',
+            'status' => 'approved',
         ]);
 
-        Invoice::factory()->create([
+        $invoice = Invoice::factory()->create([
             'sales_order_id' => $so->id,
-            'customer_id'    => $customer->id,
-            'status'         => 'paid',
+            'customer_id' => $customer->id,
+            'status' => 'paid',
         ]);
 
         $this->actingAs($this->admin)
-            ->postJson("/api/sales/sales-orders/{$so->id}/cancel")
-            ->assertUnprocessable();
+            ->postJson("/api/sales/sales-orders/{$so->id}/cancel", ['reason' => 'Pelanggan membatalkan'])
+            ->assertOk();
 
-        // SO harus tetap tidak berubah
+        // SO berhasil dibatalkan
         $this->assertDatabaseHas('sales_orders', [
-            'id'     => $so->id,
-            'status' => 'approved',
+            'id' => $so->id,
+            'status' => 'cancelled',
+        ]);
+
+        // Invoice paid juga ikut dibatalkan (cascade)
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoice->id,
+            'status' => 'cancelled',
         ]);
     }
 
-    public function test_cancel_sales_order_skips_shipped_delivery_order(): void
+    /**
+     * Sesuai aturan baru: DO dengan status 'shipped' TETAP dibatalkan (cascade).
+     */
+    public function test_cancel_sales_order_also_cancels_shipped_delivery_order(): void
     {
         $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
 
         $so = SalesOrder::factory()->create([
             'customer_id' => $customer->id,
-            'status'      => 'approved',
+            'status' => 'approved',
         ]);
 
         $shippedDo = DeliveryOrder::factory()->create([
             'sales_order_id' => $so->id,
-            'customer_id'    => $customer->id,
-            'status'         => 'shipped',
+            'customer_id' => $customer->id,
+            'status' => 'shipped',
         ]);
 
         $this->actingAs($this->admin)
             ->postJson("/api/sales/sales-orders/{$so->id}/cancel")
             ->assertOk();
 
-        // DO yang sudah shipped tidak berubah
+        // DO yang shipped ikut dibatalkan sesuai aturan cascade baru
         $this->assertDatabaseHas('delivery_orders', [
-            'id'     => $shippedDo->id,
-            'status' => 'shipped',
+            'id' => $shippedDo->id,
+            'status' => 'cancelled',
         ]);
     }
 
@@ -195,12 +207,12 @@ class CancellationTest extends TestCase
 
         $activeSo = SalesOrder::factory()->create([
             'customer_id' => $customer->id,
-            'status'      => 'approved',
+            'status' => 'approved',
         ]);
 
         $cancelledSo = SalesOrder::factory()->create([
-            'customer_id'  => $customer->id,
-            'status'       => 'cancelled',
+            'customer_id' => $customer->id,
+            'status' => 'cancelled',
             'cancelled_by' => $this->admin->id,
             'cancelled_at' => now(),
         ]);
@@ -224,13 +236,13 @@ class CancellationTest extends TestCase
         /** @var Invoice $invoice */
         $invoice = Invoice::factory()->create([
             'customer_id' => $customer->id,
-            'status'      => 'unpaid',
+            'status' => 'unpaid',
         ]);
 
         /** @var Payment $payment */
         $payment = Payment::factory()->create([
             'invoice_id' => $invoice->id,
-            'status'     => 'pending',
+            'status' => 'pending',
         ]);
 
         $this->actingAs($this->admin)
@@ -241,30 +253,38 @@ class CancellationTest extends TestCase
             ->assertJsonPath('data.status', 'cancelled');
 
         $this->assertDatabaseHas('invoices', [
-            'id'            => $invoice->id,
-            'status'        => 'cancelled',
-            'cancelled_by'  => $this->admin->id,
+            'id' => $invoice->id,
+            'status' => 'cancelled',
+            'cancelled_by' => $this->admin->id,
             'cancel_reason' => 'Kesalahan penginputan',
         ]);
 
         $this->assertDatabaseHas('payments', [
-            'id'     => $payment->id,
+            'id' => $payment->id,
             'status' => 'cancelled',
         ]);
     }
 
-    public function test_cancel_paid_invoice_returns_422(): void
+    /**
+     * Sesuai aturan baru: Invoice berstatus 'paid' TETAP bisa dibatalkan.
+     */
+    public function test_cancel_paid_invoice_also_succeeds(): void
     {
         $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
 
         $invoice = Invoice::factory()->create([
             'customer_id' => $customer->id,
-            'status'      => 'paid',
+            'status' => 'paid',
         ]);
 
         $this->actingAs($this->admin)
-            ->postJson("/api/finance/invoices/{$invoice->id}/cancel")
-            ->assertUnprocessable();
+            ->postJson("/api/finance/invoices/{$invoice->id}/cancel", ['reason' => 'Retur barang'])
+            ->assertOk();
+
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoice->id,
+            'status' => 'cancelled',
+        ]);
     }
 
     // ── Purchase Order ─────────────────────────────────────────
@@ -276,14 +296,14 @@ class CancellationTest extends TestCase
         /** @var PurchaseOrder $po */
         $po = PurchaseOrder::factory()->create([
             'supplier_id' => $supplier->id,
-            'status'      => 'ordered',
+            'status' => 'ordered',
         ]);
 
         /** @var SupplierPayable $payable */
         $payable = SupplierPayable::factory()->create([
             'purchase_order_id' => $po->id,
-            'supplier_id'       => $supplier->id,
-            'status'            => 'open',
+            'supplier_id' => $supplier->id,
+            'status' => 'open',
         ]);
 
         $this->actingAs($this->admin)
@@ -293,12 +313,12 @@ class CancellationTest extends TestCase
             ->assertOk();
 
         $this->assertDatabaseHas('purchase_orders', [
-            'id'     => $po->id,
+            'id' => $po->id,
             'status' => 'cancelled',
         ]);
 
         $this->assertDatabaseHas('supplier_payables', [
-            'id'     => $payable->id,
+            'id' => $payable->id,
             'status' => 'cancelled',
         ]);
     }
@@ -309,14 +329,14 @@ class CancellationTest extends TestCase
 
         $so = SalesOrder::factory()->create([
             'customer_id' => $customer->id,
-            'status'      => 'draft',
+            'status' => 'draft',
         ]);
 
         $this->actingAs($this->admin)
             ->postJson("/api/sales/sales-orders/{$so->id}/cancel");
 
         $this->assertDatabaseHas('sales_orders', [
-            'id'           => $so->id,
+            'id' => $so->id,
             'cancelled_by' => $this->admin->id,
         ]);
         $this->assertNotNull(SalesOrder::find($so->id)->cancelled_at);

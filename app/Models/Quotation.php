@@ -31,7 +31,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Quotation extends Model
 {
-    use HasFactory, Cancellable, GeneratesDocumentNumber, HasUuids;
+    use Cancellable, GeneratesDocumentNumber, HasFactory, HasUuids;
 
     public function documentNumberPrefix(): string
     {

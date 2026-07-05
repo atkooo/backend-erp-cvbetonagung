@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\Cancellable;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,10 +17,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'amount',
     'paid_amount',
     'status',
+    'cancelled_by',
+    'cancelled_at',
+    'cancel_reason',
 ])]
 class SupplierPayable extends Model
 {
-    use HasFactory, HasUuids;
+    use Cancellable, HasFactory, HasUuids;
 
     public function purchaseOrder(): BelongsTo
     {

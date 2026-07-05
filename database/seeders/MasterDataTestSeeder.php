@@ -2,10 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Models\Account;
 use App\Models\Customer;
 use App\Models\Employee;
 use App\Models\Invoice;
 use App\Models\Product;
+use App\Models\ProductStock;
 use App\Models\Project;
 use App\Models\Quotation;
 use App\Models\SalesOrder;
@@ -15,9 +17,8 @@ use App\Models\Supplier;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Models\Account;
-use Illuminate\Database\Seeder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Seeder;
 
 class MasterDataTestSeeder extends Seeder
 {
@@ -30,7 +31,7 @@ class MasterDataTestSeeder extends Seeder
             [
                 'name' => 'Admin User',
                 'password' => bcrypt('password'),
-                'status' => 'active'
+                'status' => 'active',
             ]
         );
 
@@ -40,7 +41,7 @@ class MasterDataTestSeeder extends Seeder
                 'name' => 'Pelanggan Umum',
                 'email' => 'umum@example.com',
                 'phone' => '081234567890',
-                'status' => 'active'
+                'status' => 'active',
             ]
         );
 
@@ -50,7 +51,7 @@ class MasterDataTestSeeder extends Seeder
                 'name' => 'Supplier Umum',
                 'contact_name' => 'Bapak Supplier',
                 'phone' => '089876543210',
-                'status' => 'active'
+                'status' => 'active',
             ]
         );
 
@@ -60,7 +61,7 @@ class MasterDataTestSeeder extends Seeder
                 'name' => 'Product FG Test',
                 'cost_price' => 10000,
                 'selling_price' => 15000,
-                'status' => 'active'
+                'status' => 'active',
             ]
         );
 
@@ -70,7 +71,7 @@ class MasterDataTestSeeder extends Seeder
                 'name' => 'Material RM Test',
                 'cost_price' => 5000,
                 'selling_price' => 7000,
-                'status' => 'active'
+                'status' => 'active',
             ]
         );
 
@@ -85,7 +86,7 @@ class MasterDataTestSeeder extends Seeder
                 'name' => 'Employee Prod Init',
                 'department' => 'Production',
                 'role_name' => 'Staff',
-                'status' => 'active'
+                'status' => 'active',
             ]
         );
 
@@ -93,7 +94,7 @@ class MasterDataTestSeeder extends Seeder
             ['code' => 'GDG-UTM'],
             [
                 'name' => 'Gudang Utama Test',
-                'status' => 'active'
+                'status' => 'active',
             ]
         );
 
@@ -101,10 +102,10 @@ class MasterDataTestSeeder extends Seeder
             ['code' => 'DEFAULT'],
             [
                 'warehouse_id' => $warehouse->id,
-                'name' => 'Lokasi Default'
+                'name' => 'Lokasi Default',
             ]
         );
-        
+
         $account = Account::firstOrCreate(
             ['code' => 'ACC-01'],
             [
@@ -112,11 +113,11 @@ class MasterDataTestSeeder extends Seeder
                 'type' => 'cash',
                 'currency' => 'IDR',
                 'balance' => 0,
-                'is_active' => true
+                'is_active' => true,
             ]
         );
 
-        \App\Models\ProductStock::firstOrCreate(
+        ProductStock::firstOrCreate(
             ['product_id' => $productFg->id, 'location_id' => $location->id],
             ['quantity' => 100]
         );
@@ -130,7 +131,7 @@ class MasterDataTestSeeder extends Seeder
                 'quotation_date' => date('Y-m-d'),
                 'valid_until' => date('Y-m-d', strtotime('+30 days')),
                 'total' => 100000,
-                'status' => 'draft'
+                'status' => 'draft',
             ]
         );
 
@@ -141,7 +142,7 @@ class MasterDataTestSeeder extends Seeder
                 'customer_id' => $customer->id,
                 'order_date' => date('Y-m-d'),
                 'total' => 100000,
-                'status' => 'draft'
+                'status' => 'draft',
             ]
         );
 
@@ -152,7 +153,7 @@ class MasterDataTestSeeder extends Seeder
                 'quantity' => 10,
                 'unit_price' => 10000,
                 'subtotal' => 100000,
-                'discount_amount' => 0
+                'discount_amount' => 0,
             ]
         );
 
@@ -165,7 +166,7 @@ class MasterDataTestSeeder extends Seeder
                 'due_date' => date('Y-m-d', strtotime('+30 days')),
                 'total' => 100000,
                 'paid_amount' => 0,
-                'status' => 'unpaid'
+                'status' => 'unpaid',
             ]
         );
 
@@ -176,7 +177,7 @@ class MasterDataTestSeeder extends Seeder
                 'project_name' => 'Project Init',
                 'contract_value' => 1000000,
                 'deadline' => date('Y-m-d', strtotime('+30 days')),
-                'status' => 'survey'
+                'status' => 'survey',
             ]
         );
 
@@ -186,7 +187,7 @@ class MasterDataTestSeeder extends Seeder
                 'warehouse_id' => $warehouse->id,
                 'started_at' => date('Y-m-d H:i:s'),
                 'status' => 'draft',
-                'started_by' => $admin->id
+                'started_by' => $admin->id,
             ]
         );
     }

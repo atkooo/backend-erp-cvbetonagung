@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class MasterDataRequest extends FormRequest
@@ -19,7 +20,7 @@ class MasterDataRequest extends FormRequest
     {
         $resource = (string) $this->route('resource');
         $id = $this->route('id');
-        \Illuminate\Support\Facades\Log::info("MasterDataRequest check: resource={$resource}, id=" . ($id ?? 'NULL') . ", method=" . $this->method());
+        Log::info("MasterDataRequest check: resource={$resource}, id=".($id ?? 'NULL').', method='.$this->method());
         $required = $this->isMethod('post') ? ['required'] : ['sometimes', 'required'];
         $nullable = $this->isMethod('post') ? ['nullable'] : ['sometimes', 'nullable'];
 

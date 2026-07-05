@@ -10,12 +10,12 @@ class PaymentFactory extends Factory
     public function definition(): array
     {
         return [
-            'payment_number' => 'PAY-TEST-' . $this->faker->unique()->numerify('####'),
-            'invoice_id'     => Invoice::factory(),
-            'payment_date'   => now(),
-            'method'         => 'transfer',
-            'amount'         => 500000,
-            'status'         => 'pending',
+            'payment_number' => 'PAY-TEST-'.$this->faker->unique()->numerify('####'),
+            'invoice_id' => Invoice::factory(),
+            'payment_date' => now(),
+            'method' => 'transfer',
+            'amount' => 500000,
+            'status' => 'pending',
         ];
     }
 }

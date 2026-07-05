@@ -202,6 +202,10 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
         ->whereUuid('id');
     Route::post('purchasing/purchase-orders/{id}/cancel', [PurchasingController::class, 'cancelPurchaseOrder'])
         ->whereUuid('id');
+    Route::post('purchasing/purchase-requests/{id}/cancel', [PurchasingController::class, 'cancelPurchaseRequest'])
+        ->whereUuid('id');
+    Route::post('purchasing/rfqs/{id}/cancel', [PurchasingController::class, 'cancelRfq'])
+        ->whereUuid('id');
 
     Route::prefix('purchasing/{resource}')
         ->whereIn('resource', [

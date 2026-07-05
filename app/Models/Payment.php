@@ -23,7 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class Payment extends Model
 {
-    use HasFactory, GeneratesDocumentNumber, HasUuids;
+    use GeneratesDocumentNumber, HasFactory, HasUuids;
 
     public function documentNumberPrefix(): string
     {

@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 #[Fillable(['code', 'name', 'contact_name', 'phone', 'city', 'address', 'status'])]
 class Supplier extends Model
 {
-    use HasFactory, GeneratesDocumentNumber, HasUuids, SoftDeletes;
+    use GeneratesDocumentNumber, HasFactory, HasUuids, SoftDeletes;
 
     public function documentNumberPrefix(): string
     {

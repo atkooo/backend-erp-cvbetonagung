@@ -27,7 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class PurchaseOrder extends Model
 {
-    use HasFactory, Cancellable, GeneratesDocumentNumber, HasUuids;
+    use Cancellable, GeneratesDocumentNumber, HasFactory, HasUuids;
 
     protected $appends = [
         'purchase_number',

@@ -10,11 +10,11 @@ class SalesOrderFactory extends Factory
     public function definition(): array
     {
         return [
-            'order_number' => 'SO-TEST-' . $this->faker->unique()->numerify('####'),
-            'customer_id'  => Customer::factory(),
-            'order_date'   => $this->faker->date(),
-            'total'        => 1000000,
-            'status'       => 'draft',
+            'order_number' => 'SO-TEST-'.$this->faker->unique()->numerify('####'),
+            'customer_id' => Customer::factory(),
+            'order_date' => $this->faker->date(),
+            'total' => 1000000,
+            'status' => 'draft',
         ];
     }
 }

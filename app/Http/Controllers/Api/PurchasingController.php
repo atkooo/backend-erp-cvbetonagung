@@ -206,6 +206,24 @@ class PurchasingController extends ApiResourceController
         ]);
     }
 
+    public function cancelPurchaseRequest(CancelDocumentRequest $request, string $id, CancellationService $service): JsonResponse
+    {
+        $purchaseRequest = $service->cancelPurchaseRequest($id, auth()->id(), $request->input('reason', ''));
+
+        return response()->json([
+            'data' => $purchaseRequest->fresh(['requester', 'items.product']),
+        ]);
+    }
+
+    public function cancelRfq(CancelDocumentRequest $request, string $id, CancellationService $service): JsonResponse
+    {
+        $rfq = $service->cancelRfq($id, auth()->id(), $request->input('reason', ''));
+
+        return response()->json([
+            'data' => $rfq->fresh(['purchaseRequest', 'supplier', 'items.product']),
+        ]);
+    }
+
     protected function filterableColumns(): array
     {
         return [

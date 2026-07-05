@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\Cancellable;
 use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class PurchaseRequest extends Model
 {
-    use GeneratesDocumentNumber, HasFactory, HasUuids;
+    use Cancellable, GeneratesDocumentNumber, HasFactory, HasUuids;
 
     public function documentNumberPrefix(): string
     {
@@ -29,6 +30,9 @@ class PurchaseRequest extends Model
         'department',
         'status',
         'notes',
+        'cancelled_by',
+        'cancelled_at',
+        'cancel_reason',
     ];
 
     protected $casts = [

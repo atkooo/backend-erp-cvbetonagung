@@ -29,7 +29,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class SalesOrder extends Model
 {
-    use HasFactory, Cancellable, GeneratesDocumentNumber, HasUuids;
+    use Cancellable, GeneratesDocumentNumber, HasFactory, HasUuids;
 
     public function documentNumberPrefix(): string
     {

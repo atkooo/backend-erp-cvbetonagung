@@ -26,7 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class DeliveryOrder extends Model
 {
-    use HasFactory, Cancellable, GeneratesDocumentNumber, HasUuids;
+    use Cancellable, GeneratesDocumentNumber, HasFactory, HasUuids;
 
     public function documentNumberPrefix(): string
     {

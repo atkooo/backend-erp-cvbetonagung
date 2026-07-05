@@ -6,7 +6,9 @@ use App\Models\DeliveryOrder;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseRequest;
 use App\Models\Quotation;
+use App\Models\Rfq;
 use App\Models\SalesOrder;
 use App\Models\SupplierPayable;
 use Illuminate\Support\Facades\DB;
@@ -15,20 +17,26 @@ use Illuminate\Support\Facades\DB;
  * Service untuk pembatalan dokumen dengan cascading.
  *
  * Hierarki:
- *   SalesOrder → DeliveryOrder (non-shipped) + Invoice (unpaid/partial) → Payment (pending)
- *   PurchaseOrder → SupplierPayable (open/partial)
- *   Invoice → Payment (pending)
+ *   SalesOrder → DeliveryOrder (semua status) + Invoice (semua status) → Payment (semua status)
+ *   PurchaseOrder → SupplierPayable (semua status)
+ *   Invoice → Payment (semua status)
  *   Quotation / DeliveryOrder → hanya status sendiri
+ *
+ * Catatan: pembatalan tetap bersifat runtut (cascade), tidak ada guard berdasarkan status dokumen.
+ * Satu-satunya yang diblokir adalah jika dokumen SUDAH berstatus cancelled (tidak perlu cancel ulang).
  */
 class CancellationService
 {
     /**
-     * Batalkan Sales Order beserta turunannya.
+     * Batalkan Sales Order beserta SELURUH turunannya (cascade penuh).
      *
      * Guard:
-     *  - SO sudah cancelled → skip
-     *  - Invoice sudah paid → abort (tidak bisa cancel)
-     *  - DO sudah shipped/received → skip (bukan abort), karena barang sudah jalan
+     *  - SO sudah cancelled → tolak (tidak perlu cancel ulang)
+     *
+     * Cascade:
+     *  - SEMUA Delivery Order (ready_to_load, shipped, received) → cancelled
+     *  - SEMUA Invoice (unpaid, partial, overdue, paid/Lunas) → cancelled
+     *    └─ SEMUA Payment (pending, Verified) milik Invoice → cancelled
      */
     public function cancelSalesOrder(string $id, string $userId, string $reason = ''): SalesOrder
     {
@@ -42,12 +50,6 @@ class CancellationService
 
             abort_if($so->isCancelled(), 422, 'Sales order sudah dibatalkan sebelumnya.');
 
-            // Guard: ada invoice yang sudah paid?
-            $paidInvoice = $so->invoices->first(fn ($inv) => $inv->status === 'paid');
-            if ($paidInvoice) {
-                abort(422, "Sales order tidak dapat dibatalkan karena invoice {$paidInvoice->invoice_number} sudah berstatus 'paid'.");
-            }
-
             $cancelMeta = [
                 'status' => 'cancelled',
                 'cancelled_by' => $userId,
@@ -55,17 +57,16 @@ class CancellationService
                 'cancel_reason' => $reason,
             ];
 
-            // Cancel DO yang belum shipped / received
-            $cancellableStatuses = ['ready_to_load'];
+            // Cancel SEMUA DO (termasuk yang sudah shipped/received)
             foreach ($so->deliveryOrders as $do) {
-                if (in_array($do->status, $cancellableStatuses, true)) {
+                if (! $do->isCancelled()) {
                     $do->forceFill($cancelMeta)->save();
                 }
             }
 
-            // Cancel Invoice + Payment turunannya
+            // Cancel SEMUA Invoice + SEMUA Payment turunannya
             foreach ($so->invoices as $invoice) {
-                if (in_array($invoice->status, ['unpaid', 'partial', 'overdue'], true)) {
+                if (! $invoice->isCancelled()) {
                     $this->cancelInvoiceRecord($invoice, $userId, $reason);
                 }
             }
@@ -78,7 +79,10 @@ class CancellationService
     }
 
     /**
-     * Batalkan sebuah Invoice beserta Payment yang masih pending.
+     * Batalkan sebuah Invoice beserta SEMUA Payment miliknya (cascade penuh).
+     *
+     * Guard:
+     *  - Invoice sudah cancelled → tolak
      */
     public function cancelInvoice(string $id, string $userId, string $reason = ''): Invoice
     {
@@ -91,7 +95,6 @@ class CancellationService
                 ->firstOrFail();
 
             abort_if($invoice->isCancelled(), 422, 'Invoice sudah dibatalkan sebelumnya.');
-            abort_if($invoice->status === 'paid', 422, 'Invoice yang sudah lunas tidak dapat dibatalkan.');
 
             $this->cancelInvoiceRecord($invoice, $userId, $reason);
 
@@ -100,7 +103,93 @@ class CancellationService
     }
 
     /**
-     * Batalkan Purchase Order beserta SupplierPayable yang belum lunas.
+     * Batalkan Purchase Request beserta SEMUA turunan (RFQ, PO, Payable).
+     *
+     * Guard:
+     *  - PR sudah cancelled → tolak
+     */
+    public function cancelPurchaseRequest(string $id, string $userId, string $reason = ''): PurchaseRequest
+    {
+        return DB::transaction(function () use ($id, $userId, $reason): PurchaseRequest {
+            /** @var PurchaseRequest $pr */
+            $pr = PurchaseRequest::query()
+                ->lockForUpdate()
+                ->whereKey($id)
+                ->firstOrFail();
+
+            abort_if($pr->isCancelled(), 422, 'Purchase Request sudah dibatalkan sebelumnya.');
+
+            $cancelMeta = [
+                'status' => 'cancelled',
+                'cancelled_by' => $userId,
+                'cancelled_at' => now(),
+                'cancel_reason' => $reason,
+            ];
+
+            // Cancel terkait RFQ (asumsikan relation ada)
+            $rfqs = Rfq::where('purchase_request_id', $pr->id)->get();
+            foreach ($rfqs as $rfq) {
+                if (! $rfq->isCancelled()) {
+                    $this->cancelRfq($rfq->id, $userId, $reason);
+                }
+            }
+
+            // Cancel langsung terkait PO (bisa dari PR langsung)
+            $pos = PurchaseOrder::where('purchase_request_id', $pr->id)->get();
+            foreach ($pos as $po) {
+                if (! $po->isCancelled()) {
+                    $this->cancelPurchaseOrder($po->id, $userId, $reason);
+                }
+            }
+
+            $pr->forceFill($cancelMeta)->save();
+
+            return $pr->fresh();
+        });
+    }
+
+    /**
+     * Batalkan RFQ beserta SEMUA turunan (PO, Payable).
+     *
+     * Guard:
+     *  - RFQ sudah cancelled → tolak
+     */
+    public function cancelRfq(string $id, string $userId, string $reason = ''): Rfq
+    {
+        return DB::transaction(function () use ($id, $userId, $reason): Rfq {
+            /** @var Rfq $rfq */
+            $rfq = Rfq::query()
+                ->with('purchaseOrders')
+                ->lockForUpdate()
+                ->whereKey($id)
+                ->firstOrFail();
+
+            abort_if($rfq->isCancelled(), 422, 'RFQ sudah dibatalkan sebelumnya.');
+
+            $cancelMeta = [
+                'status' => 'cancelled',
+                'cancelled_by' => $userId,
+                'cancelled_at' => now(),
+                'cancel_reason' => $reason,
+            ];
+
+            foreach ($rfq->purchaseOrders as $po) {
+                if (! $po->isCancelled()) {
+                    $this->cancelPurchaseOrder($po->id, $userId, $reason);
+                }
+            }
+
+            $rfq->forceFill($cancelMeta)->save();
+
+            return $rfq->fresh();
+        });
+    }
+
+    /**
+     * Batalkan Purchase Order beserta SEMUA SupplierPayable miliknya.
+     *
+     * Guard:
+     *  - PO sudah cancelled → tolak
      */
     public function cancelPurchaseOrder(string $id, string $userId, string $reason = ''): PurchaseOrder
     {
@@ -114,12 +203,6 @@ class CancellationService
 
             abort_if($po->isCancelled(), 422, 'Purchase order sudah dibatalkan sebelumnya.');
 
-            // Guard: ada payable yang sudah paid?
-            $paidPayable = $po->supplierPayables->first(fn ($p) => $p->status === 'paid');
-            if ($paidPayable) {
-                abort(422, "Purchase order tidak dapat dibatalkan karena hutang {$paidPayable->payable_number} sudah berstatus 'paid'.");
-            }
-
             $cancelMeta = [
                 'status' => 'cancelled',
                 'cancelled_by' => $userId,
@@ -127,8 +210,9 @@ class CancellationService
                 'cancel_reason' => $reason,
             ];
 
+            // Cancel SEMUA SupplierPayable (open, partial, paid)
             foreach ($po->supplierPayables as $payable) {
-                if (in_array($payable->status, ['open', 'partial'], true)) {
+                if (! $payable->isCancelled()) {
                     $payable->forceFill($cancelMeta)->save();
                 }
             }
@@ -141,6 +225,10 @@ class CancellationService
 
     /**
      * Batalkan Quotation (tidak ada turunan yang perlu di-cascade).
+     *
+     * Guard:
+     *  - Quotation sudah cancelled → tolak
+     *  - Status approved → tolak (batalkan lewat Sales Order-nya)
      */
     public function cancelQuotation(string $id, string $userId, string $reason = ''): Quotation
     {
@@ -171,6 +259,9 @@ class CancellationService
 
     /**
      * Batalkan Delivery Order secara mandiri (bukan via cascade SO).
+     *
+     * Guard:
+     *  - DO sudah cancelled → tolak
      */
     public function cancelDeliveryOrder(string $id, string $userId, string $reason = ''): DeliveryOrder
     {
@@ -182,11 +273,6 @@ class CancellationService
                 ->firstOrFail();
 
             abort_if($do->isCancelled(), 422, 'Delivery order sudah dibatalkan sebelumnya.');
-            abort_if(
-                in_array($do->status, ['shipped', 'received'], true),
-                422,
-                'Delivery order yang sudah dikirim/diterima tidak dapat dibatalkan.'
-            );
 
             $do->forceFill([
                 'status' => 'cancelled',
@@ -201,6 +287,10 @@ class CancellationService
 
     // ── Private helpers ───────────────────────────────────────
 
+    /**
+     * Internal: batalkan Invoice + SEMUA Payment miliknya (tanpa cek status invoice).
+     * Digunakan baik dari cancelInvoice() maupun cascade dari cancelSalesOrder().
+     */
     private function cancelInvoiceRecord(Invoice $invoice, string $userId, string $reason): void
     {
         $cancelMeta = [
@@ -210,10 +300,10 @@ class CancellationService
             'cancel_reason' => $reason,
         ];
 
-        // Cancel pending payments
+        // Cancel SEMUA payment milik invoice ini (pending maupun Verified)
         Payment::query()
             ->where('invoice_id', $invoice->id)
-            ->where('status', 'pending')
+            ->whereNotIn('status', ['cancelled'])
             ->update($cancelMeta);
 
         $invoice->forceFill($cancelMeta)->save();

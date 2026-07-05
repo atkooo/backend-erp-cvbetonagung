@@ -8,7 +8,9 @@ use App\Models\DeliveryOrder;
 use App\Models\GoodsReceiptNote;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\ProductionWorkOrder;
 use App\Models\ProductStock;
+use App\Models\Project;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseRequest;
 use App\Models\Quotation;
@@ -627,6 +629,67 @@ class CancellationService
     }
 
     // ══════════════════════════════════════════════════════════════════════
+    //  PRODUCTION & PROJECT
+    // ══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Batalkan Work Order.
+     * Reverse stock untuk barang jadi (dikurangi) dan bahan baku (dikembalikan).
+     */
+    public function cancelWorkOrder(string $id, string $userId, string $reason = ''): ProductionWorkOrder
+    {
+        return DB::transaction(function () use ($id, $userId, $reason): ProductionWorkOrder {
+            $wo = ProductionWorkOrder::query()
+                ->lockForUpdate()
+                ->whereKey($id)
+                ->firstOrFail();
+
+            abort_if($wo->stage === 'cancelled', 422, 'Work Order sudah dibatalkan sebelumnya.');
+
+            $this->reverseWorkOrderStock($wo, $userId, $reason);
+
+            $wo->forceFill([
+                'stage' => 'cancelled',
+                'completed_qty' => 0, // Meng-nolkan agar actual_amount pada ProjectBudget ikut jadi 0 melalui event
+            ])->save();
+
+            return $wo->fresh();
+        });
+    }
+
+    /**
+     * Batalkan Project.
+     * Memastikan tidak ada Work Order aktif sebelum dibatalkan.
+     */
+    public function cancelProject(string $id, string $userId, string $reason = ''): Project
+    {
+        return DB::transaction(function () use ($id): Project {
+            $project = Project::query()
+                ->lockForUpdate()
+                ->whereKey($id)
+                ->firstOrFail();
+
+            abort_if($project->status === 'cancelled', 422, 'Project sudah dibatalkan sebelumnya.');
+
+            $activeWOs = ProductionWorkOrder::where('project_id', $project->id)
+                ->where('stage', '!=', 'cancelled')
+                ->count();
+
+            abort_if(
+                $activeWOs > 0,
+                422,
+                'Tidak dapat membatalkan Project karena masih ada '.$activeWOs.' Work Order aktif. Batalkan semua WO terlebih dahulu.'
+            );
+
+            $project->forceFill([
+                'status' => 'cancelled',
+            ])->save();
+
+            return $project->fresh();
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
     //  Private helpers
     // ══════════════════════════════════════════════════════════════════════
 
@@ -822,6 +885,77 @@ class CancellationService
                 ]);
                 $account->balance += $tx->amount;
                 $account->save();
+            }
+        }
+    }
+
+    /**
+     * Kembalikan stok bahan baku (ditambah) dan barang jadi (dikurangi)
+     * saat Work Order dibatalkan.
+     */
+    private function reverseWorkOrderStock(ProductionWorkOrder $wo, string $userId, string $reason): void
+    {
+        $movements = StockMovement::query()
+            ->where('reference_type', 'production_work_order')
+            ->where('reference_id', $wo->id)
+            ->get();
+
+        foreach ($movements as $tx) {
+            $qty = (float) $tx->quantity;
+            if ($qty <= 0) {
+                continue;
+            }
+
+            if ($tx->type === 'in') {
+                // Ini adalah penerimaan barang jadi (FG)
+                // Harus dibatalkan dengan mengurangi (out) dari target location
+                if ($tx->to_location_id) {
+                    $stock = ProductStock::query()
+                        ->firstOrCreate(
+                            ['product_id' => $tx->product_id, 'location_id' => $tx->to_location_id],
+                            ['quantity' => 0]
+                        );
+                    $stock->decrement('quantity', $qty);
+                }
+
+                StockMovement::query()->create([
+                    'product_id' => $tx->product_id,
+                    'from_location_id' => $tx->to_location_id,
+                    'to_location_id' => null,
+                    'type' => 'out',
+                    'quantity' => $qty,
+                    'reference_type' => 'wo_reversal',
+                    'reference_id' => $wo->id,
+                    'reference_number' => $wo->work_order_number,
+                    'handled_by' => $userId,
+                    'notes' => 'Pembatalan barang jadi WO: '.$wo->work_order_number.' — '.$reason,
+                    'movement_at' => now(),
+                ]);
+            } elseif ($tx->type === 'out') {
+                // Ini adalah pemotongan bahan baku (RM)
+                // Harus dibatalkan dengan menambah (in) ke source location
+                if ($tx->from_location_id) {
+                    $stock = ProductStock::query()
+                        ->firstOrCreate(
+                            ['product_id' => $tx->product_id, 'location_id' => $tx->from_location_id],
+                            ['quantity' => 0]
+                        );
+                    $stock->increment('quantity', $qty);
+                }
+
+                StockMovement::query()->create([
+                    'product_id' => $tx->product_id,
+                    'from_location_id' => null,
+                    'to_location_id' => $tx->from_location_id,
+                    'type' => 'in',
+                    'quantity' => $qty,
+                    'reference_type' => 'wo_reversal',
+                    'reference_id' => $wo->id,
+                    'reference_number' => $wo->work_order_number,
+                    'handled_by' => $userId,
+                    'notes' => 'Pengembalian bahan baku pembatalan WO: '.$wo->work_order_number.' — '.$reason,
+                    'movement_at' => now(),
+                ]);
             }
         }
     }

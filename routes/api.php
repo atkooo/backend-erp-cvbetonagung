@@ -247,6 +247,7 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
         ])
         ->controller(ProjectController::class)
         ->group(function () {
+            Route::post('{id}/cancel', 'cancelProject')->whereUuid('id')->where('resource', 'projects');
             Route::get('/', 'index');
             Route::post('/', 'store');
             Route::get('/{id}', 'show')->whereUuid('id');
@@ -282,6 +283,8 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
         });
 
     Route::post('production/work-orders/{id}/receive', [ProductionController::class, 'receive'])
+        ->whereUuid('id');
+    Route::post('production/work-orders/{id}/cancel', [ProductionController::class, 'cancelWorkOrder'])
         ->whereUuid('id');
 
     Route::prefix('production/{resource}')

@@ -9,6 +9,7 @@ use App\Models\ProductionWorkLog;
 use App\Models\ProductionWorkOrder;
 use App\Models\ProductionWorkOrderItem;
 use App\Models\ProductionWorkOrderTask;
+use App\Services\CancellationService;
 use App\Services\ProductionWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -19,9 +20,14 @@ class ProductionController extends ApiResourceController
 {
     private ProductionWorkflowService $workflowService;
 
-    public function __construct(ProductionWorkflowService $workflowService)
-    {
+    private CancellationService $cancellationService;
+
+    public function __construct(
+        ProductionWorkflowService $workflowService,
+        CancellationService $cancellationService
+    ) {
         $this->workflowService = $workflowService;
+        $this->cancellationService = $cancellationService;
     }
 
     /**
@@ -133,6 +139,22 @@ class ProductionController extends ApiResourceController
         $workOrder = $this->workflowService->receiveWorkOrder($id, $validated);
 
         return response()->json([
+            'message' => 'Work order received successfully',
+            'data' => $workOrder,
+        ]);
+    }
+
+    public function cancelWorkOrder(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'reason' => 'required|string',
+        ]);
+
+        $userId = $request->user()?->id ?? 'system';
+        $workOrder = $this->cancellationService->cancelWorkOrder($id, $userId, $validated['reason']);
+
+        return response()->json([
+            'message' => 'Work order cancelled successfully',
             'data' => $workOrder,
         ]);
     }

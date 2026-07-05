@@ -8,6 +8,7 @@ use App\Models\ProjectBudgetItem;
 use App\Models\ProjectDocument;
 use App\Models\ProjectTask;
 use App\Models\ProjectTimeline;
+use App\Services\CancellationService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,13 @@ use Illuminate\Http\Response;
 
 class ProjectController extends ApiResourceController
 {
+    private CancellationService $cancellationService;
+
+    public function __construct(CancellationService $cancellationService)
+    {
+        $this->cancellationService = $cancellationService;
+    }
+
     /**
      * @var array<string, array{model: class-string<Model>, searchable: array<int, string>, sortable: array<int, string>, relations?: array<int, string>}>
      */
@@ -95,5 +103,20 @@ class ProjectController extends ApiResourceController
             'project_type',
             'stage',
         ];
+    }
+
+    public function cancelProject(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'reason' => 'required|string',
+        ]);
+
+        $userId = $request->user()?->id ?? 'system';
+        $project = $this->cancellationService->cancelProject($id, $userId, $validated['reason']);
+
+        return response()->json([
+            'message' => 'Project cancelled successfully',
+            'data' => $project,
+        ]);
     }
 }

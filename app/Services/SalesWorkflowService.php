@@ -244,10 +244,10 @@ class SalesWorkflowService
 
             abort_if($salesOrder->items->isEmpty(), 422, 'Sales order must have at least one item before delivery.');
             abort_if($salesOrder->status !== 'approved', 422, 'Only approved sales orders can be delivered.');
-            abort_if($salesOrder->deliveryOrders()->exists(), 409, 'Sales order already has a delivery order.');
+            abort_if($salesOrder->deliveryOrders()->where('status', '!=', 'cancelled')->exists(), 409, 'Sales order already has an active delivery order.');
 
-            $invoice = $salesOrder->invoices()->first();
-            abort_if(! $invoice, 422, 'Sales order must have an invoice before delivery.');
+            $invoice = $salesOrder->invoices()->where('status', '!=', 'cancelled')->first();
+            abort_if(! $invoice, 422, 'Sales order must have an active invoice before delivery.');
             abort_if((float) $invoice->paid_amount <= 0, 422, 'Invoice must be partially or fully paid before delivery.');
 
             if ($salesOrder->status === 'draft') {

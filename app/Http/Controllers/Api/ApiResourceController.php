@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Traits\Cancellable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
@@ -101,7 +102,15 @@ abstract class ApiResourceController extends Controller
         /** @var class-string<Model> $modelClass */
         $modelClass = $config['model'];
 
-        return $modelClass::query()->with($config['relations'] ?? []);
+        $query = $modelClass::query()->with($config['relations'] ?? []);
+
+        if (in_array(Cancellable::class, class_uses_recursive($modelClass), true)) {
+            if (! request()->has('status')) {
+                $query->active();
+            }
+        }
+
+        return $query;
     }
 
     /**

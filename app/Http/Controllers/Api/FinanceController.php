@@ -14,8 +14,6 @@ use App\Models\Payment;
 use App\Models\ProjectTermin;
 use App\Services\CancellationService;
 use App\Services\FinanceWorkflowService;
-use App\Traits\Cancellable;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -78,18 +76,6 @@ class FinanceController extends ApiResourceController
     public function index(Request $request, string $resource): JsonResponse
     {
         return $this->indexResource($request, $resource);
-    }
-
-    protected function resourceQuery(array $config): Builder
-    {
-        $modelClass = $config['model'];
-        $query = $modelClass::query()->with($config['relations'] ?? []);
-
-        if (in_array(Cancellable::class, class_uses_recursive($modelClass), true)) {
-            $query->active();
-        }
-
-        return $query;
     }
 
     public function store(FinanceRequest $request, string $resource): JsonResponse
@@ -173,6 +159,14 @@ class FinanceController extends ApiResourceController
         $config = $this->resourceConfig('invoices');
 
         return (new JsonResource($invoice->fresh($config['relations'] ?? [])))->response();
+    }
+
+    public function cancelPayment(CancelDocumentRequest $request, string $id, CancellationService $service): JsonResponse
+    {
+        $payment = $service->cancelPayment($id, auth()->id(), $request->input('reason', ''));
+        $config = $this->resourceConfig('payments');
+
+        return (new JsonResource($payment->fresh($config['relations'] ?? [])))->response();
     }
 
     protected function filterableColumns(): array

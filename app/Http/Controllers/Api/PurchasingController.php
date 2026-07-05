@@ -18,8 +18,6 @@ use App\Models\RfqItem;
 use App\Models\SupplierPayable;
 use App\Services\CancellationService;
 use App\Services\PurchasingWorkflowService;
-use App\Traits\Cancellable;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -112,18 +110,6 @@ class PurchasingController extends ApiResourceController
     public function index(Request $request, string $resource): JsonResponse
     {
         return $this->indexResource($request, $resource);
-    }
-
-    protected function resourceQuery(array $config): Builder
-    {
-        $modelClass = $config['model'];
-        $query = $modelClass::query()->with($config['relations'] ?? []);
-
-        if (in_array(Cancellable::class, class_uses_recursive($modelClass), true)) {
-            $query->active();
-        }
-
-        return $query;
     }
 
     public function store(PurchasingRequest $request, string $resource): JsonResponse
@@ -221,6 +207,24 @@ class PurchasingController extends ApiResourceController
 
         return response()->json([
             'data' => $rfq->fresh(['purchaseRequest', 'supplier', 'items.product']),
+        ]);
+    }
+
+    public function cancelGoodsReceiptNote(CancelDocumentRequest $request, string $id, CancellationService $service): JsonResponse
+    {
+        $grn = $service->cancelGoodsReceiptNote($id, auth()->id(), $request->input('reason', ''));
+
+        return response()->json([
+            'data' => $grn->fresh(['purchaseOrder', 'warehouse', 'toLocation', 'receiver', 'items.product']),
+        ]);
+    }
+
+    public function cancelSupplierPayable(CancelDocumentRequest $request, string $id, CancellationService $service): JsonResponse
+    {
+        $payable = $service->cancelSupplierPayable($id, auth()->id(), $request->input('reason', ''));
+
+        return response()->json([
+            'data' => $payable->fresh(['supplier', 'purchaseOrder']),
         ]);
     }
 

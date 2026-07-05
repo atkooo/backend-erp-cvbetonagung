@@ -13,6 +13,7 @@ class PurchasingQueryController extends Controller
     {
         return response()->json([
             'data' => PurchaseOrder::query()
+                ->active()
                 ->with(['supplier', 'items.product'])
                 ->orderByDesc('po_date')
                 ->get(),
@@ -23,6 +24,7 @@ class PurchasingQueryController extends Controller
     {
         return response()->json([
             'data' => GoodsReceiptNote::query()
+                ->active()
                 ->with(['purchaseOrder', 'warehouse', 'receiver', 'items.product'])
                 ->orderByDesc('receipt_date')
                 ->get(),

@@ -16,6 +16,7 @@ class FinanceQueryController extends Controller
     {
         return response()->json([
             'data' => Invoice::query()
+                ->active()
                 ->with(['customer', 'salesOrder', 'items.product'])
                 ->orderByDesc('invoice_date')
                 ->get(),
@@ -26,6 +27,7 @@ class FinanceQueryController extends Controller
     {
         return response()->json([
             'data' => Payment::query()
+                ->active()
                 ->with(['invoice.customer', 'verifiedBy'])
                 ->orderByDesc('payment_date')
                 ->get(),
@@ -36,6 +38,7 @@ class FinanceQueryController extends Controller
     {
         return response()->json([
             'data' => SupplierPayable::query()
+                ->active()
                 ->with(['supplier', 'purchaseOrder'])
                 ->orderBy('due_date')
                 ->get(),

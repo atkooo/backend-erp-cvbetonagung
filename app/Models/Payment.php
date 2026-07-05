@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\Cancellable;
 use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -20,10 +21,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'verified_by',
     'verified_at',
     'notes',
+    'cancelled_by',
+    'cancelled_at',
+    'cancel_reason',
 ])]
 class Payment extends Model
 {
-    use GeneratesDocumentNumber, HasFactory, HasUuids;
+    use Cancellable, GeneratesDocumentNumber, HasFactory, HasUuids;
 
     public function documentNumberPrefix(): string
     {

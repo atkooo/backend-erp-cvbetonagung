@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Traits\Cancellable;
 use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -19,10 +21,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'total',
     'status',
     'notes',
+    'cancelled_by',
+    'cancelled_at',
+    'cancel_reason',
 ])]
 class PurchaseOrder extends Model
 {
-    use GeneratesDocumentNumber, HasUuids;
+    use HasFactory, Cancellable, GeneratesDocumentNumber, HasUuids;
 
     protected $appends = [
         'purchase_number',

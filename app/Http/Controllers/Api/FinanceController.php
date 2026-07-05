@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\Api\CancelDocumentRequest;
 use App\Http\Requests\Api\FinanceRequest;
 use App\Http\Requests\Api\PaySupplierPayableRequest;
 use App\Http\Requests\Api\VerifyPaymentRequest;
@@ -11,7 +12,10 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Payment;
 use App\Models\ProjectTermin;
+use App\Services\CancellationService;
 use App\Services\FinanceWorkflowService;
+use App\Traits\Cancellable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -74,6 +78,18 @@ class FinanceController extends ApiResourceController
     public function index(Request $request, string $resource): JsonResponse
     {
         return $this->indexResource($request, $resource);
+    }
+
+    protected function resourceQuery(array $config): Builder
+    {
+        $modelClass = $config['model'];
+        $query = $modelClass::query()->with($config['relations'] ?? []);
+
+        if (in_array(Cancellable::class, class_uses_recursive($modelClass), true)) {
+            $query->active();
+        }
+
+        return $query;
     }
 
     public function store(FinanceRequest $request, string $resource): JsonResponse
@@ -149,6 +165,14 @@ class FinanceController extends ApiResourceController
         return response()->json([
             'data' => $payable->fresh(['supplier', 'purchaseOrder']),
         ]);
+    }
+
+    public function cancelInvoice(CancelDocumentRequest $request, string $id, CancellationService $service): JsonResponse
+    {
+        $invoice = $service->cancelInvoice($id, auth()->id(), $request->input('reason', ''));
+        $config = $this->resourceConfig('invoices');
+
+        return (new JsonResource($invoice->fresh($config['relations'] ?? [])))->response();
     }
 
     protected function filterableColumns(): array

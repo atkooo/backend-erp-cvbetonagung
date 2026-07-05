@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Traits\Cancellable;
 use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -21,10 +23,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'global_discount_type',
     'global_discount_value',
     'global_discount_amount',
+    'cancelled_by',
+    'cancelled_at',
+    'cancel_reason',
 ])]
 class SalesOrder extends Model
 {
-    use GeneratesDocumentNumber, HasUuids;
+    use HasFactory, Cancellable, GeneratesDocumentNumber, HasUuids;
 
     public function documentNumberPrefix(): string
     {

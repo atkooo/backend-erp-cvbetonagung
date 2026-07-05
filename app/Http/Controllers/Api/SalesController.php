@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Api\ApproveQuotationRequest;
 use App\Http\Requests\Api\ApproveSalesOrderRequest;
+use App\Http\Requests\Api\CancelDocumentRequest;
 use App\Http\Requests\Api\CreateDeliveryOrderRequest;
 use App\Http\Requests\Api\ProcessPosRequest;
 use App\Http\Requests\Api\SalesRequest;
@@ -14,7 +15,9 @@ use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
+use App\Services\CancellationService;
 use App\Services\SalesWorkflowService;
+use App\Traits\Cancellable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -70,6 +73,19 @@ class SalesController extends ApiResourceController
     public function index(Request $request, string $resource): JsonResponse
     {
         return $this->indexResource($request, $resource);
+    }
+
+    protected function resourceQuery(array $config): Builder
+    {
+        $modelClass = $config['model'];
+        $query = $modelClass::query()->with($config['relations'] ?? []);
+
+        // Exclude cancelled records from list unless caller explicitly wants them
+        if (in_array(Cancellable::class, class_uses_recursive($modelClass), true)) {
+            $query->active();
+        }
+
+        return $query;
     }
 
     /**
@@ -177,6 +193,30 @@ class SalesController extends ApiResourceController
         $config = $this->resourceConfig('sales-orders');
 
         return (new JsonResource($salesOrder->fresh($config['relations'] ?? [])))->response()->setStatusCode(201);
+    }
+
+    public function cancelQuotation(CancelDocumentRequest $request, string $id, CancellationService $service): JsonResponse
+    {
+        $quotation = $service->cancelQuotation($id, auth()->id(), $request->input('reason', ''));
+        $config = $this->resourceConfig('quotations');
+
+        return (new JsonResource($quotation->fresh($config['relations'] ?? [])))->response();
+    }
+
+    public function cancelSalesOrder(CancelDocumentRequest $request, string $id, CancellationService $service): JsonResponse
+    {
+        $salesOrder = $service->cancelSalesOrder($id, auth()->id(), $request->input('reason', ''));
+        $config = $this->resourceConfig('sales-orders');
+
+        return (new JsonResource($salesOrder->fresh($config['relations'] ?? [])))->response();
+    }
+
+    public function cancelDeliveryOrder(CancelDocumentRequest $request, string $id, CancellationService $service): JsonResponse
+    {
+        $deliveryOrder = $service->cancelDeliveryOrder($id, auth()->id(), $request->input('reason', ''));
+        $config = $this->resourceConfig('delivery-orders');
+
+        return (new JsonResource($deliveryOrder->fresh($config['relations'] ?? [])))->response();
     }
 
     protected function filterableColumns(): array

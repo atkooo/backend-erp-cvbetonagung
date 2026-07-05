@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\Api\CancelDocumentRequest;
 use App\Http\Requests\Api\PurchasingRequest;
 use App\Http\Requests\Api\ReceivePurchaseOrderRequest;
 use App\Models\GoodsReceiptNote;
@@ -15,7 +16,10 @@ use App\Models\ReturnItem;
 use App\Models\Rfq;
 use App\Models\RfqItem;
 use App\Models\SupplierPayable;
+use App\Services\CancellationService;
 use App\Services\PurchasingWorkflowService;
+use App\Traits\Cancellable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -110,6 +114,18 @@ class PurchasingController extends ApiResourceController
         return $this->indexResource($request, $resource);
     }
 
+    protected function resourceQuery(array $config): Builder
+    {
+        $modelClass = $config['model'];
+        $query = $modelClass::query()->with($config['relations'] ?? []);
+
+        if (in_array(Cancellable::class, class_uses_recursive($modelClass), true)) {
+            $query->active();
+        }
+
+        return $query;
+    }
+
     public function store(PurchasingRequest $request, string $resource): JsonResponse
     {
         if ($resource === 'goods-receipt-notes') {
@@ -175,6 +191,15 @@ class PurchasingController extends ApiResourceController
     public function receivePurchaseOrder(ReceivePurchaseOrderRequest $request, string $id): JsonResponse
     {
         $purchaseOrder = $this->purchasingWorkflow->receivePurchaseOrder($id, $request->validated());
+
+        return response()->json([
+            'data' => $purchaseOrder->fresh(['supplier', 'items.product', 'supplierPayables']),
+        ]);
+    }
+
+    public function cancelPurchaseOrder(CancelDocumentRequest $request, string $id, CancellationService $service): JsonResponse
+    {
+        $purchaseOrder = $service->cancelPurchaseOrder($id, auth()->id(), $request->input('reason', ''));
 
         return response()->json([
             'data' => $purchaseOrder->fresh(['supplier', 'items.product', 'supplierPayables']),

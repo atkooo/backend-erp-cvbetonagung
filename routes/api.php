@@ -167,11 +167,17 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
     Route::post('sales/pos', [SalesController::class, 'processPos']);
     Route::post('sales/quotations/{id}/approve', [SalesController::class, 'approveQuotation'])
         ->whereUuid('id');
+    Route::post('sales/quotations/{id}/cancel', [SalesController::class, 'cancelQuotation'])
+        ->whereUuid('id');
     Route::post('sales/sales-orders/{id}/approve', [SalesController::class, 'approveSalesOrder'])
         ->whereUuid('id');
     Route::post('sales/sales-orders/{id}/deliver', [SalesController::class, 'createDeliveryOrder'])
         ->whereUuid('id');
+    Route::post('sales/sales-orders/{id}/cancel', [SalesController::class, 'cancelSalesOrder'])
+        ->whereUuid('id');
     Route::post('sales/delivery-orders/{id}/ship', [SalesController::class, 'shipDeliveryOrder'])
+        ->whereUuid('id');
+    Route::post('sales/delivery-orders/{id}/cancel', [SalesController::class, 'cancelDeliveryOrder'])
         ->whereUuid('id');
 
     Route::prefix('sales/{resource}')
@@ -193,6 +199,8 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
         });
 
     Route::post('purchasing/purchase-orders/{id}/receive', [PurchasingController::class, 'receivePurchaseOrder'])
+        ->whereUuid('id');
+    Route::post('purchasing/purchase-orders/{id}/cancel', [PurchasingController::class, 'cancelPurchaseOrder'])
         ->whereUuid('id');
 
     Route::prefix('purchasing/{resource}')
@@ -239,6 +247,8 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
     Route::post('finance/payments/{id}/verify', [FinanceController::class, 'verifyPayment'])
         ->whereUuid('id');
     Route::post('finance/supplier-payables/{id}/pay', [FinanceController::class, 'paySupplierPayable'])
+        ->whereUuid('id');
+    Route::post('finance/invoices/{id}/cancel', [FinanceController::class, 'cancelInvoice'])
         ->whereUuid('id');
 
     Route::prefix('finance/{resource}')

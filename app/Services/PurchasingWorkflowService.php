@@ -198,8 +198,8 @@ class PurchasingWorkflowService
 
         if ($soItem) {
             $deduction = $item->quantity * $soItem->unit_price;
-            $invoice->amount = max(0, $invoice->amount - $deduction);
-            $invoice->status = $invoice->paid_amount >= $invoice->amount ? 'paid' : 'partial';
+            $invoice->total = max(0, $invoice->total - $deduction);
+            $invoice->status = $invoice->paid_amount >= $invoice->total ? 'paid' : 'partial';
             $invoice->save();
         }
     }

@@ -48,6 +48,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/', 'index');
         Route::post('/', 'store');
     });
+
+    Route::prefix('notifications')->controller(\App\Http\Controllers\NotificationController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::post('read-all', 'markAllAsRead');
+        Route::post('{id}/read', 'markAsRead')->whereUuid('id');
+    });
 });
 
 Route::middleware(['auth:sanctum', 'permission'])->group(function () {

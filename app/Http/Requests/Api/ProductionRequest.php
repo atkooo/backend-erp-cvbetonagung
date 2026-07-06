@@ -67,6 +67,13 @@ class ProductionRequest extends FormRequest
                 'effective_from' => [...$nullable, 'date'],
                 'status' => [...$required, Rule::in(['active', 'inactive'])],
                 'total_cost' => ['sometimes', 'numeric', 'min:0'],
+                'items' => ['sometimes', 'array'],
+                'items.*.component_product_id' => ['nullable', 'uuid', Rule::exists('products', 'id')],
+                'items.*.component_name' => ['nullable', 'string', 'max:255'],
+                'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+                'items.*.unit_id' => ['nullable', 'uuid', Rule::exists('units', 'id')],
+                'items.*.unit_cost' => ['required', 'numeric', 'min:0'],
+                'items.*.subtotal' => ['required', 'numeric', 'min:0'],
             ],
             'bom-items' => [
                 'bom_id' => [...$required, 'uuid', Rule::exists('boms', 'id')],

@@ -13,6 +13,55 @@ class ProductionWorkflowService
     /**
      * @param  array<string, mixed>  $attributes
      */
+    public function createBom(array $attributes): Bom
+    {
+        return DB::transaction(function () use ($attributes): Bom {
+            $bom = Bom::query()->create($attributes);
+
+            if (isset($attributes['items']) && is_array($attributes['items'])) {
+                foreach ($attributes['items'] as $item) {
+                    $bom->items()->create($item);
+                }
+            }
+
+            // Recalculate total cost just to be safe
+            $totalCost = $bom->items()->sum('subtotal');
+            if ($bom->total_cost != $totalCost) {
+                $bom->update(['total_cost' => $totalCost]);
+            }
+
+            return $bom;
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    public function updateBom(string $id, array $attributes): Bom
+    {
+        return DB::transaction(function () use ($id, $attributes): Bom {
+            $bom = Bom::query()->findOrFail($id);
+            $bom->update($attributes);
+
+            if (isset($attributes['items']) && is_array($attributes['items'])) {
+                // For simplicity, we just delete old items and recreate if items are provided.
+                // If items are not provided, we leave them as is.
+                $bom->items()->delete();
+                foreach ($attributes['items'] as $item) {
+                    $bom->items()->create($item);
+                }
+                
+                $totalCost = $bom->items()->sum('subtotal');
+                $bom->update(['total_cost' => $totalCost]);
+            }
+
+            return $bom;
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
     public function receiveWorkOrder(string $id, array $attributes): ProductionWorkOrder
     {
         return DB::transaction(function () use ($id, $attributes): ProductionWorkOrder {

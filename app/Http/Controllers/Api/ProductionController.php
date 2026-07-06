@@ -87,6 +87,12 @@ class ProductionController extends ApiResourceController
 
     public function store(ProductionRequest $request, string $resource): JsonResponse
     {
+        if ($resource === 'boms') {
+            $model = $this->workflowService->createBom($request->validated());
+            $config = $this->resourceConfig($resource);
+            return (new \Illuminate\Http\Resources\Json\JsonResource($model->fresh($config['relations'] ?? [])))->response()->setStatusCode(201);
+        }
+        
         return $this->storeResource($resource, $request->validated());
     }
 
@@ -97,6 +103,12 @@ class ProductionController extends ApiResourceController
 
     public function update(ProductionRequest $request, string $resource, string $id): JsonResponse
     {
+        if ($resource === 'boms') {
+            $model = $this->workflowService->updateBom($id, $request->validated());
+            $config = $this->resourceConfig($resource);
+            return (new \Illuminate\Http\Resources\Json\JsonResource($model->fresh($config['relations'] ?? [])))->response();
+        }
+
         return $this->updateResource($resource, $id, $request->validated());
     }
 

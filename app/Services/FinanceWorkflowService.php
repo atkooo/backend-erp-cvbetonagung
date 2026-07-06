@@ -254,13 +254,6 @@ class FinanceWorkflowService
 
             $transaction = CashTransaction::create($attributes);
 
-            if ($transaction->type === 'in') {
-                $account->balance += $transaction->amount;
-            } else {
-                $account->balance -= $transaction->amount;
-            }
-            $account->save();
-
             return $transaction;
         });
     }

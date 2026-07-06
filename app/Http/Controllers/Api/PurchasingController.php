@@ -12,7 +12,6 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestItem;
-use App\Models\ReturnItem;
 use App\Models\Rfq;
 use App\Models\RfqItem;
 use App\Models\SupplierPayable;
@@ -82,18 +81,6 @@ class PurchasingController extends ApiResourceController
             'searchable' => ['payable_number'],
             'sortable' => ['payable_number', 'due_date', 'amount', 'paid_amount', 'status', 'created_at'],
             'relations' => ['purchaseOrder', 'supplier'],
-        ],
-        'returns' => [
-            'model' => ProductReturn::class,
-            'searchable' => ['return_number', 'reason', 'qc_status'],
-            'sortable' => ['return_number', 'type', 'qc_status', 'created_at'],
-            'relations' => ['customer', 'supplier', 'salesOrder', 'purchaseOrder', 'createdBy', 'items.product'],
-        ],
-        'return-items' => [
-            'model' => ReturnItem::class,
-            'searchable' => ['notes'],
-            'sortable' => ['quantity'],
-            'relations' => ['productReturn', 'product'],
         ],
     ];
 

@@ -140,13 +140,14 @@ class RequirePermission
             'production' => 'production',
             'reports' => 'reports',
             'support' => 'reports',
+            'returns' => 'purchasing',
             default => null,
         };
     }
 
     private function actionFor(Request $request): string
     {
-        if ($request->isMethod('post') && preg_match('/\/(approve|verify|receive|adjust|deliver|ship)$/', $request->path()) === 1) {
+        if ($request->isMethod('post') && preg_match('/\/(approve|verify|receive|adjust|deliver|ship|refund)$/', $request->path()) === 1) {
             return 'approve';
         }
 

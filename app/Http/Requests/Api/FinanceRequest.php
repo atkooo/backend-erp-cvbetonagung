@@ -74,7 +74,6 @@ class FinanceRequest extends FormRequest
                 'code' => [...$required, 'string', 'max:255', Rule::unique('accounts', 'code')->ignore($id)],
                 'name' => [...$required, 'string', 'max:255'],
                 'type' => [...$required, Rule::in(['asset', 'liability', 'equity', 'revenue', 'expense', 'cash', 'bank', 'ewallet'])],
-                'balance' => ['sometimes', 'numeric'],
                 'currency' => ['sometimes', 'string', 'size:3'],
                 'description' => [...$nullable, 'string'],
                 'is_active' => ['sometimes', 'boolean'],

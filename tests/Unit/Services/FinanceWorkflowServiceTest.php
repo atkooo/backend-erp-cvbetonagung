@@ -49,9 +49,19 @@ class FinanceWorkflowServiceTest extends TestCase
             'code' => 'ACC-01',
             'name' => 'Kas Test',
             'type' => 'cash',
-            'is_active' => true,
             'currency' => 'IDR',
-            'balance' => 1000000,
+            'is_active' => true,
+        ]);
+
+        $this->account->transactions()->create([
+            'transaction_number' => 'TRX-INIT',
+            'transaction_date' => date('Y-m-d'),
+            'type' => 'in',
+            'amount' => 1000000,
+            'category' => 'revenue',
+            'reference_type' => 'manual',
+            'description' => 'Initial balance',
+            'recorded_by' => $this->admin->id,
         ]);
 
         $this->customer = Customer::forceCreate([
@@ -172,7 +182,7 @@ class FinanceWorkflowServiceTest extends TestCase
         $this->assertEquals('partial', $paidPayable->status);
 
         $this->account->refresh();
-        $this->assertEquals(-500000, $this->account->balance);
+        $this->assertEquals(-500000, $this->account->balance); // 1000000 - 1500000
 
         $this->assertDatabaseHas('cash_transactions', [
             'account_id' => $this->account->id,

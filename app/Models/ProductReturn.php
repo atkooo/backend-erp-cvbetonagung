@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use App\Traits\GeneratesDocumentNumber;
+
 #[Fillable([
     'return_number',
     'type',
@@ -16,14 +18,29 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'sales_order_id',
     'purchase_order_id',
     'reason',
+    'action',
     'qc_status',
     'created_by',
 ])]
 class ProductReturn extends Model
 {
-    use HasUuids;
+    use HasUuids, GeneratesDocumentNumber;
 
     protected $table = 'returns';
+
+    protected $attributes = [
+        'qc_status' => 'pending_qc',
+    ];
+
+    public function documentNumberPrefix(): string
+    {
+        return 'RET';
+    }
+
+    public function documentNumberField(): string
+    {
+        return 'return_number';
+    }
 
     public function customer(): BelongsTo
     {

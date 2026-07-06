@@ -14,6 +14,7 @@ use App\Models\Payment;
 use App\Models\ProjectTermin;
 use App\Services\CancellationService;
 use App\Services\FinanceWorkflowService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -132,6 +133,22 @@ class FinanceController extends ApiResourceController
 
     public function destroy(string $resource, string $id): JsonResponse|Response
     {
+        if ($resource === 'accounts') {
+            $account = Account::findOrFail($id);
+
+            if ($account->balance != 0) {
+                return response()->json([
+                    'message' => 'Akun tidak dapat dihapus karena masih memiliki saldo.',
+                ], 422);
+            }
+
+            if ($account->transactions()->exists()) {
+                return response()->json([
+                    'message' => 'Akun tidak dapat dihapus karena sudah memiliki riwayat transaksi.',
+                ], 422);
+            }
+        }
+
         return $this->destroyResource($resource, $id);
     }
 
@@ -180,5 +197,22 @@ class FinanceController extends ApiResourceController
             'status',
             'method',
         ];
+    }
+
+    protected function resourceQuery(array $config): Builder
+    {
+        $query = parent::resourceQuery($config);
+
+        if ($config['model'] === Account::class) {
+            $query->addSelect('*')
+                ->selectSub(function ($query) {
+                    $query->selectRaw("COALESCE(SUM(CASE WHEN type = 'in' THEN amount ELSE -amount END), 0)")
+                        ->from('cash_transactions')
+                        ->whereColumn('cash_transactions.account_id', 'accounts.id');
+                }, 'balance')
+                ->withCasts(['balance' => 'decimal:2']);
+        }
+
+        return $query;
     }
 }

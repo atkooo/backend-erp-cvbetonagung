@@ -15,7 +15,6 @@ class Account extends Model
         'code',
         'name',
         'type',
-        'balance',
         'currency',
         'description',
         'is_active',
@@ -23,8 +22,20 @@ class Account extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
-        'balance' => 'decimal:2',
     ];
+
+    protected $appends = ['balance'];
+
+    public function getBalanceAttribute(): float
+    {
+        if (array_key_exists('balance', $this->attributes)) {
+            return (float) $this->attributes['balance'];
+        }
+
+        return (float) $this->transactions()
+            ->selectRaw("COALESCE(SUM(CASE WHEN type = 'in' THEN amount ELSE -amount END), 0) as total")
+            ->value('total');
+    }
 
     public function transactions(): HasMany
     {

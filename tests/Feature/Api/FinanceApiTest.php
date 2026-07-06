@@ -78,7 +78,7 @@ class FinanceApiTest extends TestCase
 
         $invoice = Invoice::query()->where('invoice_number', 'INV-INIT')->firstOrFail();
         $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
-        $account = Account::firstOrCreate(['code' => '111-01'], ['name' => 'Kas Kecil', 'type' => 'cash', 'currency' => 'IDR', 'is_active' => true, 'balance' => 0]);
+        $account = Account::firstOrCreate(['code' => '111-01'], ['name' => 'Kas Kecil', 'type' => 'cash', 'currency' => 'IDR', 'is_active' => true]);
 
         $this->postJson('/api/finance/payments', [
             'invoice_id' => $invoice->id,
@@ -125,7 +125,7 @@ class FinanceApiTest extends TestCase
 
         $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
         $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
-        $account = Account::firstOrCreate(['code' => '111-01'], ['name' => 'Kas Kecil', 'type' => 'cash', 'currency' => 'IDR', 'is_active' => true, 'balance' => 0]);
+        $account = Account::firstOrCreate(['code' => '111-01'], ['name' => 'Kas Kecil', 'type' => 'cash', 'currency' => 'IDR', 'is_active' => true]);
 
         $invoiceId = $this->postJson('/api/finance/invoices', [
             'invoice_number' => 'INV-API-VERIFY',
@@ -223,5 +223,62 @@ class FinanceApiTest extends TestCase
             $this->assertEquals($soItem->unit_price, $matchingInvoiceItem->unit_price);
             $this->assertEquals($soItem->subtotal, $matchingInvoiceItem->subtotal);
         }
+    }
+
+    public function test_account_cannot_be_deleted_if_it_has_balance_or_transactions(): void
+    {
+        $this->seed();
+
+        $account = Account::create([
+            'code' => 'TEST-001',
+            'name' => 'Test Account',
+            'type' => 'cash',
+            'currency' => 'IDR',
+            'is_active' => true,
+        ]);
+
+        $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
+
+        // Add transaction to give balance
+        $account->transactions()->create([
+            'transaction_number' => 'TRX-TEST-001',
+            'transaction_date' => now(),
+            'type' => 'in',
+            'amount' => 100000,
+            'category' => 'revenue',
+            'reference_type' => 'manual',
+            'description' => 'Test',
+            'recorded_by' => $admin->id,
+        ]);
+
+        $this->deleteJson("/api/finance/accounts/{$account->id}")
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Akun tidak dapat dihapus karena masih memiliki saldo.');
+
+        // Remove the transaction, so balance is 0
+        $account->transactions()->delete();
+
+        // Add a 0 amount transaction to simulate having transactions but 0 balance
+        $account->transactions()->create([
+            'transaction_number' => 'TRX-TEST-002',
+            'transaction_date' => now(),
+            'type' => 'in',
+            'amount' => 0,
+            'category' => 'revenue',
+            'reference_type' => 'manual',
+            'description' => 'Test',
+            'recorded_by' => $admin->id,
+        ]);
+
+        $this->deleteJson("/api/finance/accounts/{$account->id}")
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Akun tidak dapat dihapus karena sudah memiliki riwayat transaksi.');
+
+        $account->transactions()->delete();
+
+        $this->deleteJson("/api/finance/accounts/{$account->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('accounts', ['id' => $account->id]);
     }
 }

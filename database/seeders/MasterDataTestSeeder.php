@@ -112,7 +112,6 @@ class MasterDataTestSeeder extends Seeder
                 'name' => 'Kas Test',
                 'type' => 'cash',
                 'currency' => 'IDR',
-                'balance' => 0,
                 'is_active' => true,
             ]
         );

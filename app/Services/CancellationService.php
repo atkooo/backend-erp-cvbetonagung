@@ -849,8 +849,6 @@ class CancellationService
                     'description' => 'Pembatalan pembayaran faktur '.($payment->invoice?->invoice_number ?? $payment->invoice_id).' — '.$reason,
                     'recorded_by' => $userId,
                 ]);
-                $account->balance -= $payment->amount;
-                $account->save();
             }
         }
     }
@@ -883,8 +881,6 @@ class CancellationService
                     'description' => 'Pengembalian kas dari pembatalan hutang '.($payable->payable_number ?? $payable->id).' — '.$reason,
                     'recorded_by' => $userId,
                 ]);
-                $account->balance += $tx->amount;
-                $account->save();
             }
         }
     }

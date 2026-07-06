@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\Purchasing\PurchasingQueryController;
 use App\Http\Controllers\Api\PurchasingController;
 use App\Http\Controllers\Api\Reports\ExecSalesReportController;
 use App\Http\Controllers\Api\Reports\ReportsController;
+use App\Http\Controllers\Api\ReturnController;
 use App\Http\Controllers\Api\SalesController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\SupportController;
@@ -226,10 +227,24 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
             'goods-receipt-notes',
             'goods-receipt-note-items',
             'supplier-payables',
+        ])
+        ->controller(PurchasingController::class)
+        ->group(function () {
+            Route::get('/', 'index');
+            Route::post('/', 'store');
+            Route::get('/{id}', 'show')->whereUuid('id');
+            Route::match(['put', 'patch'], '/{id}', 'update')->whereUuid('id');
+            Route::delete('/{id}', 'destroy')->whereUuid('id');
+        });
+    Route::post('returns/{id}/refund', [ReturnController::class, 'manualRefund'])
+        ->whereUuid('id');
+
+    Route::prefix('{resource}')
+        ->whereIn('resource', [
             'returns',
             'return-items',
         ])
-        ->controller(PurchasingController::class)
+        ->controller(ReturnController::class)
         ->group(function () {
             Route::get('/', 'index');
             Route::post('/', 'store');

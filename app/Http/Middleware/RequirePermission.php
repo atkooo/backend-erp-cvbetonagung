@@ -19,6 +19,9 @@ class RequirePermission
         'employees' => 'employees',
         'permissions' => 'roles',
         'role-permissions' => 'roles',
+        'attendances' => 'employees',
+        'leaves' => 'employees',
+        'leave-types' => 'employees',
         'customers' => 'customers',
         'suppliers' => 'suppliers',
         'product-categories' => 'products',
@@ -141,6 +144,7 @@ class RequirePermission
             'reports' => 'reports',
             'support' => 'reports',
             'returns' => 'purchasing',
+            'hrd' => 'employees',
             default => null,
         };
     }

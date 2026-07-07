@@ -9,6 +9,7 @@ use App\Services\ReturnWorkflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\DB;
 
 class ReturnController extends ApiResourceController
 {
@@ -48,22 +49,22 @@ class ReturnController extends ApiResourceController
     {
         if ($resource === 'returns') {
             $validated = $request->validated();
-            
-            $return = \Illuminate\Support\Facades\DB::transaction(function () use ($validated) {
+
+            $return = DB::transaction(function () use ($validated) {
                 $items = $validated['items'];
                 unset($validated['items']);
-                
+
                 $validated['created_by'] = auth()->id();
-                
+
                 $return = ProductReturn::create($validated);
-                
+
                 foreach ($items as $item) {
                     $return->items()->create($item);
                 }
-                
+
                 return $return;
             });
-            
+
             return (new JsonResource($return->fresh($this->resources()['returns']['relations'] ?? [])))->response()->setStatusCode(201);
         }
 

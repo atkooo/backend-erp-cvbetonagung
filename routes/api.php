@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\SalesController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\SupportController;
 use App\Http\Controllers\Api\SystemController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', function () {
@@ -49,9 +50,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/', 'store');
     });
 
-    Route::prefix('notifications')->controller(\App\Http\Controllers\NotificationController::class)->group(function () {
+    Route::prefix('notifications')->controller(NotificationController::class)->group(function () {
         Route::get('/', 'index');
         Route::post('read-all', 'markAllAsRead');
+        Route::post('test', 'testNotification');
         Route::post('{id}/read', 'markAsRead')->whereUuid('id');
     });
 });
@@ -98,6 +100,9 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
             ->whereUuid(['roleId', 'permissionId']);
         Route::delete('role-permissions/{roleId}/{permissionId}', 'destroyRolePermission')
             ->whereUuid(['roleId', 'permissionId']);
+
+        Route::post('employees/{id}/generate-account', 'generateAccount')
+            ->whereUuid('id');
 
         Route::prefix('{resource}')
             ->whereIn('resource', [

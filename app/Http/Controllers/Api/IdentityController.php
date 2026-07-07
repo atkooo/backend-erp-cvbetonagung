@@ -67,7 +67,25 @@ class IdentityController extends ApiResourceController
             return $this->storeRolePermission($request);
         }
 
-        return $this->storeResource($resource, $request->validated());
+        $validated = $request->validated();
+        $employeeId = null;
+        if ($resource === 'users' && array_key_exists('employee_id', $validated)) {
+            $employeeId = $validated['employee_id'];
+            unset($validated['employee_id']);
+        }
+
+        $response = $this->storeResource($resource, $validated);
+
+        if ($resource === 'users' && $response->getStatusCode() === 201) {
+            // Get the newly created user ID
+            $responseData = json_decode($response->getContent(), true);
+            $userId = $responseData['data']['id'] ?? null;
+            if ($userId && $employeeId) {
+                Employee::whereKey($employeeId)->update(['user_id' => $userId]);
+            }
+        }
+
+        return $response;
     }
 
     public function show(string $resource, string $id): JsonResponse
@@ -77,12 +95,85 @@ class IdentityController extends ApiResourceController
 
     public function update(IdentityRequest $request, string $resource, string $id): JsonResponse
     {
-        return $this->updateResource($resource, $id, $request->validated());
+        $validated = $request->validated();
+        $employeeId = null;
+        $hasEmployeeId = false;
+
+        if ($resource === 'users' && array_key_exists('employee_id', $validated)) {
+            $employeeId = $validated['employee_id'];
+            $hasEmployeeId = true;
+            unset($validated['employee_id']);
+        }
+
+        $response = $this->updateResource($resource, $id, $validated);
+
+        if ($resource === 'users' && $hasEmployeeId) {
+            // Unlink any existing employee linked to this user
+            Employee::where('user_id', $id)->update(['user_id' => null]);
+
+            // Link new employee if provided
+            if ($employeeId) {
+                Employee::whereKey($employeeId)->update(['user_id' => $id]);
+            }
+        }
+
+        return $response;
     }
 
     public function destroy(string $resource, string $id): JsonResponse|Response
     {
         return $this->destroyResource($resource, $id);
+    }
+
+    public function generateAccount(string $id): JsonResponse
+    {
+        $employee = Employee::query()->findOrFail($id);
+
+        if ($employee->user_id) {
+            return response()->json([
+                'message' => 'Karyawan ini sudah memiliki akun sistem.',
+            ], 422);
+        }
+
+        // Get default role (Karyawan or Viewer)
+        $role = Role::query()->where('name', 'Karyawan')->first() 
+            ?? Role::query()->where('name', 'Viewer')->first() 
+            ?? Role::query()->where('name', 'Staff')->first();
+            
+        if (! $role) {
+            return response()->json([
+                'message' => 'Gagal membuat akun: Role standar (Karyawan/Viewer) tidak ditemukan di database.',
+            ], 422);
+        }
+
+        // Generate email
+        $firstName = strtolower(explode(' ', trim($employee->name))[0]);
+        $email = $firstName.'.'.mt_rand(100, 999).'@cvbetonagung.com';
+
+        // Ensure unique email
+        while (User::query()->where('email', $email)->exists()) {
+            $email = $firstName.'.'.mt_rand(1000, 9999).'@cvbetonagung.com';
+        }
+
+        $password = 'Password123!';
+
+        $user = User::query()->create([
+            'name' => $employee->name,
+            'email' => $email,
+            'password' => bcrypt($password),
+            'role_id' => $role->id,
+            'status' => 'active',
+        ]);
+
+        $employee->update(['user_id' => $user->id]);
+
+        return response()->json([
+            'message' => 'Akun berhasil dibuat.',
+            'data' => [
+                'user' => $user->only(['id', 'name', 'email']),
+                'password' => $password,
+            ],
+        ], 201);
     }
 
     public function showRolePermission(string $roleId, string $permissionId): JsonResponse

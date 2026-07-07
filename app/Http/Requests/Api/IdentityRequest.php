@@ -33,6 +33,7 @@ class IdentityRequest extends FormRequest
             ],
             'users' => [
                 'role_id' => [...$nullable, 'uuid', Rule::exists('roles', 'id')],
+                'employee_id' => [...$nullable, 'uuid', Rule::exists('employees', 'id')],
                 'name' => [...$required, 'string', 'max:255'],
                 'email' => [...$required, 'email', 'max:255', Rule::unique('users', 'email')->ignore($id)],
                 'password' => [$this->isMethod('post') ? 'required' : 'sometimes', 'string', 'min:8'],

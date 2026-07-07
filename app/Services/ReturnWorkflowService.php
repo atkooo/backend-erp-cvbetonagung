@@ -17,6 +17,7 @@ use App\Models\SalesOrderItem;
 use App\Models\StockMovement;
 use App\Models\StorageLocation;
 use App\Models\SupplierPayable;
+use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
 
 class ReturnWorkflowService
@@ -28,7 +29,7 @@ class ReturnWorkflowService
 
             abort_if($return->qc_status === 'approved', 422, 'Return is already approved.');
 
-            if ($return->type === 'customer' && $return->action === 'replace' && !$allowBackorder) {
+            if ($return->type === 'customer' && $return->action === 'replace' && ! $allowBackorder) {
                 foreach ($return->items as $item) {
                     $stock = ProductStock::where('product_id', $item->product_id)->sum('quantity');
                     $available = (float) $stock;
@@ -71,17 +72,17 @@ class ReturnWorkflowService
 
     private function resolveQuarantineLocationId(): ?string
     {
-        $warehouse = \App\Models\Warehouse::query()->first();
-        if (!$warehouse) {
+        $warehouse = Warehouse::query()->first();
+        if (! $warehouse) {
             return null;
         }
 
-        $quarantineLocation = \App\Models\StorageLocation::query()->firstOrCreate(
+        $quarantineLocation = StorageLocation::query()->firstOrCreate(
             ['code' => 'LOC-KARANTINA'],
             [
                 'warehouse_id' => $warehouse->id,
                 'name' => 'GUDANG KARANTINA RETUR',
-                'description' => 'Lokasi penampungan sementara barang retur sebelum diputuskan layak jual atau rusak'
+                'description' => 'Lokasi penampungan sementara barang retur sebelum diputuskan layak jual atau rusak',
             ]
         );
 

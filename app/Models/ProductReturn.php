@@ -2,13 +2,12 @@
 
 namespace App\Models;
 
+use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-
-use App\Traits\GeneratesDocumentNumber;
 
 #[Fillable([
     'return_number',
@@ -24,7 +23,7 @@ use App\Traits\GeneratesDocumentNumber;
 ])]
 class ProductReturn extends Model
 {
-    use HasUuids, GeneratesDocumentNumber;
+    use GeneratesDocumentNumber, HasUuids;
 
     protected $table = 'returns';
 

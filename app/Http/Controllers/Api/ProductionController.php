@@ -14,6 +14,7 @@ use App\Services\ProductionWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Response;
 
 class ProductionController extends ApiResourceController
@@ -90,9 +91,10 @@ class ProductionController extends ApiResourceController
         if ($resource === 'boms') {
             $model = $this->workflowService->createBom($request->validated());
             $config = $this->resourceConfig($resource);
-            return (new \Illuminate\Http\Resources\Json\JsonResource($model->fresh($config['relations'] ?? [])))->response()->setStatusCode(201);
+
+            return (new JsonResource($model->fresh($config['relations'] ?? [])))->response()->setStatusCode(201);
         }
-        
+
         return $this->storeResource($resource, $request->validated());
     }
 
@@ -106,7 +108,8 @@ class ProductionController extends ApiResourceController
         if ($resource === 'boms') {
             $model = $this->workflowService->updateBom($id, $request->validated());
             $config = $this->resourceConfig($resource);
-            return (new \Illuminate\Http\Resources\Json\JsonResource($model->fresh($config['relations'] ?? [])))->response();
+
+            return (new JsonResource($model->fresh($config['relations'] ?? [])))->response();
         }
 
         return $this->updateResource($resource, $id, $request->validated());

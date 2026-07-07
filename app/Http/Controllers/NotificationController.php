@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Notifications\SystemAlertNotification;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
@@ -13,7 +14,7 @@ class NotificationController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         $notifications = $user->unreadNotifications()->take(20)->get()->map(function ($notification) {
             return [
                 'id' => $notification->id,
@@ -39,6 +40,7 @@ class NotificationController extends Controller
 
         if ($notification) {
             $notification->markAsRead();
+
             return response()->json(['message' => 'Notification marked as read']);
         }
 
@@ -51,6 +53,23 @@ class NotificationController extends Controller
     public function markAllAsRead(Request $request): JsonResponse
     {
         $request->user()->unreadNotifications->markAsRead();
+
         return response()->json(['message' => 'All notifications marked as read']);
+    }
+
+    /**
+     * Trigger a test notification.
+     */
+    public function testNotification(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        $user->notify(new SystemAlertNotification(
+            'Test Notifikasi',
+            'Ini adalah pesan notifikasi real-time percobaan.',
+            'info'
+        ));
+
+        return response()->json(['message' => 'Notifikasi percobaan terkirim']);
     }
 }

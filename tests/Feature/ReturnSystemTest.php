@@ -14,8 +14,8 @@ use App\Models\PurchaseOrderItem;
 use App\Models\ReturnItem;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
-use App\Models\StorageLocation;
 use App\Models\StockMovement;
+use App\Models\StorageLocation;
 use App\Models\Supplier;
 use App\Models\SupplierPayable;
 use App\Models\User;
@@ -680,9 +680,9 @@ class ReturnSystemTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-                 ->assertJson([
-                     'message' => "Stok tidak mencukupi untuk barang pengganti ({$product->name}). Tersedia: 1, Dibutuhkan: 5"
-                 ]);
+            ->assertJson([
+                'message' => "Stok tidak mencukupi untuk barang pengganti ({$product->name}). Tersedia: 1, Dibutuhkan: 5",
+            ]);
     }
 
     public function test_approve_customer_return_succeeds_if_stock_insufficient_but_allow_backorder_is_true(): void

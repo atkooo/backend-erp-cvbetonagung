@@ -50,7 +50,7 @@ class ProductionWorkflowService
                 foreach ($attributes['items'] as $item) {
                     $bom->items()->create($item);
                 }
-                
+
                 $totalCost = $bom->items()->sum('subtotal');
                 $bom->update(['total_cost' => $totalCost]);
             }

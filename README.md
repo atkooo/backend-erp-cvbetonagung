@@ -1,6 +1,13 @@
 # Backend ERP CV. Beton Agung
 
-Backend API untuk sistem ERP CV. Beton Agung. Project ini memakai Laravel 13, PHP 8.3, Laravel Sanctum, PostgreSQL, dan menyediakan JSON API untuk frontend React di `../frontend`.
+Backend API untuk sistem Enterprise Resource Planning (ERP) yang dibangun khusus untuk **CV. Beton Agung**. Project ini memakai framework modern Laravel 13, PHP 8.3, Laravel Sanctum untuk autentikasi, dan PostgreSQL sebagai basis data. Sistem ini dirancang secara scalable dan menyediakan antarmuka JSON API RESTful untuk dikonsumsi oleh aplikasi frontend React yang berada di direktori `../frontend`.
+
+## Tentang Sistem ERP
+
+Sistem ERP CV. Beton Agung dikembangkan untuk mendigitalisasi, mengotomatisasi, dan mengintegrasikan seluruh alur kerja operasional perusahaan. Sistem ini sangat krusial untuk:
+- **Sentralisasi Data:** Menyatukan data dari berbagai divisi (Gudang, Penjualan, Pembelian, Keuangan, HRD, dan Produksi) ke dalam satu sumber kebenaran (Single Source of Truth).
+- **Efisiensi Operasional:** Mengelola stok material dan produk jadi secara presisi, memantau pergerakan barang (stock movement), dan mempercepat proses approval transaksi.
+- **Transparansi & Pelaporan:** Memudahkan manajemen dalam mengambil keputusan melalui dashboard real-time, laporan keuangan, dan pencatatan jejak audit (audit log) yang komprehensif.
 
 ## Fitur Utama
 

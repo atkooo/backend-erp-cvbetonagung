@@ -216,3 +216,4 @@ Saat mengerjakan task backend, AI harus:
 6. Memastikan tidak ada data sensitif yang ter-log/ter-expose (lihat 7.1).
 7. Menjalankan/menyebutkan hasil code style check (Pint) karena ini adalah tool standar yang ada di proyek.
 8. Menjelaskan jika ada bagian yang belum bisa diuji dan alasannya.
+9. Setiap kali melakukan perubahan fitur, perbaikan bug, atau pembaruan sistem lainnya, WAJIB mendokumentasikan perubahan tersebut ke dalam file `CHANGELOG.md` yang relevan.

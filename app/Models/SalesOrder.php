@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\Blameable;
 use App\Traits\Cancellable;
 use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -26,10 +27,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'cancelled_by',
     'cancelled_at',
     'cancel_reason',
+    'created_by',
 ])]
 class SalesOrder extends Model
 {
-    use Cancellable, GeneratesDocumentNumber, HasFactory, HasUuids;
+    use Blameable, Cancellable, GeneratesDocumentNumber, HasFactory, HasUuids;
 
     public function documentNumberPrefix(): string
     {

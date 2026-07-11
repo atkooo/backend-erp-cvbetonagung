@@ -12,8 +12,11 @@ class SystemAlertNotification extends Notification implements ShouldQueue
     use Queueable;
 
     private string $title;
+
     private string $message;
+
     private string $type;
+
     private ?string $link;
 
     /**

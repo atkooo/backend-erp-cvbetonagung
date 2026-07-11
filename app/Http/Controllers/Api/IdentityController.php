@@ -136,10 +136,10 @@ class IdentityController extends ApiResourceController
         }
 
         // Get default role (Karyawan or Viewer)
-        $role = Role::query()->where('name', 'Karyawan')->first() 
-            ?? Role::query()->where('name', 'Viewer')->first() 
+        $role = Role::query()->where('name', 'Karyawan')->first()
+            ?? Role::query()->where('name', 'Viewer')->first()
             ?? Role::query()->where('name', 'Staff')->first();
-            
+
         if (! $role) {
             return response()->json([
                 'message' => 'Gagal membuat akun: Role standar (Karyawan/Viewer) tidak ditemukan di database.',

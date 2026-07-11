@@ -63,7 +63,7 @@ class NotificationController extends Controller
     public function testNotification(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         $user->notify(new SystemAlertNotification(
             'Test Notifikasi',
             'Ini adalah pesan notifikasi real-time percobaan.',

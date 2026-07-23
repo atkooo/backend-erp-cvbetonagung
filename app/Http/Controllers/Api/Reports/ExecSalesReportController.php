@@ -71,7 +71,7 @@ class ExecSalesReportController extends Controller
 
         $cogs = (float) DB::table('purchase_orders')
             ->whereIn('status', ['received', 'completed', 'partial'])
-            ->whereBetween('order_date', [$dateFrom, $dateTo])
+            ->whereBetween('po_date', [$dateFrom, $dateTo])
             ->sum('total');
 
         $grossProfit = $revenue - $cogs;

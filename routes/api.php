@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\Purchasing\PurchasingQueryController;
 use App\Http\Controllers\Api\PurchasingController;
 use App\Http\Controllers\Api\Reports\ExecSalesReportController;
+use App\Http\Controllers\Api\Reports\InventoryReportController;
 use App\Http\Controllers\Api\Reports\ProductMasterStockReportController;
 use App\Http\Controllers\Api\Reports\ReportsController;
 use App\Http\Controllers\Api\ReturnController;
@@ -93,6 +94,13 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
         Route::get('gross-profit', 'grossProfit');
         Route::get('ar-aging', 'arAging');
         Route::get('top-products', 'topProducts');
+    });
+
+    Route::prefix('reports/inventory')->controller(InventoryReportController::class)->group(function () {
+        Route::get('mutation', 'mutation');
+        Route::get('low-stock', 'lowStock');
+        Route::get('valuation', 'valuation');
+        Route::get('dead-stock', 'deadStock');
     });
 
     Route::prefix('identity')->controller(IdentityController::class)->group(function () {

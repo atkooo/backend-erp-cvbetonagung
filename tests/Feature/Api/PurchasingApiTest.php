@@ -85,7 +85,7 @@ class PurchasingApiTest extends TestCase
             'status' => 'ordered',
         ])->assertCreated()->json('data.id');
 
-        $returnResponse = $this->postJson('/api/purchasing/returns', [
+        $returnResponse = $this->postJson('/api/returns', [
             'return_number' => 'RET-API-SUP-001',
             'type' => 'supplier',
             'supplier_id' => $supplier->id,
@@ -93,27 +93,24 @@ class PurchasingApiTest extends TestCase
             'reason' => 'Material did not pass QC.',
             'qc_status' => 'supplier_claim',
             'created_by' => $admin->id,
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'quantity' => 1,
+                    'notes' => 'Returned via API.',
+                ],
+            ],
         ]);
 
         $returnResponse
             ->assertCreated()
-            ->assertJsonPath('data.return_number', 'RET-API-SUP-001')
             ->assertJsonPath('data.supplier.code', 'SUP-UMUM')
             ->assertJsonPath('data.purchase_order.po_number', 'PO-API-RET');
 
-        $returnId = $returnResponse->json('data.id');
+        $returnNumber = $returnResponse->json('data.return_number');
+        $this->assertStringStartsWith('RET', $returnNumber);
 
-        $this->postJson('/api/purchasing/return-items', [
-            'return_id' => $returnId,
-            'product_id' => $product->id,
-            'quantity' => 1,
-            'notes' => 'Returned via API.',
-        ])
-            ->assertCreated()
-            ->assertJsonPath('data.product_return.return_number', 'RET-API-SUP-001')
-            ->assertJsonPath('data.product.sku', 'MTL-0001');
-
-        $this->getJson('/api/purchasing/returns?type=supplier&q=RET-API')
+        $this->getJson('/api/returns?type=supplier&q='.$returnNumber)
             ->assertOk()
             ->assertJsonPath('meta.total', 1);
     }

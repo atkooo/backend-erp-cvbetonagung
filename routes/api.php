@@ -16,8 +16,10 @@ use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\Purchasing\PurchasingQueryController;
 use App\Http\Controllers\Api\PurchasingController;
 use App\Http\Controllers\Api\Reports\ExecSalesReportController;
+use App\Http\Controllers\Api\Reports\FinanceReportController;
 use App\Http\Controllers\Api\Reports\InventoryReportController;
 use App\Http\Controllers\Api\Reports\ProductMasterStockReportController;
+use App\Http\Controllers\Api\Reports\PurchasingReportController;
 use App\Http\Controllers\Api\Reports\ReportsController;
 use App\Http\Controllers\Api\ReturnController;
 use App\Http\Controllers\Api\SalesController;
@@ -101,6 +103,18 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
         Route::get('low-stock', 'lowStock');
         Route::get('valuation', 'valuation');
         Route::get('dead-stock', 'deadStock');
+    });
+
+    Route::prefix('reports/purchasing')->controller(PurchasingReportController::class)->group(function () {
+        Route::get('supplier', 'supplier');
+        Route::get('ap-aging', 'apAging');
+        Route::get('price-analysis', 'priceAnalysis');
+    });
+
+    Route::prefix('reports/finance')->controller(FinanceReportController::class)->group(function () {
+        Route::get('cashflow', 'cashflow');
+        Route::get('expenses', 'expenses');
+        Route::get('profit-loss', 'profitLoss');
     });
 
     Route::prefix('identity')->controller(IdentityController::class)->group(function () {

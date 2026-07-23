@@ -8,3 +8,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Initial project setup.
+- Endpoint `GET /api/reports/product-master-stock` dan `GetProductMasterStockReportAction` untuk Laporan Master Produk Stok (COGS, harga jual, margin, valuasi stok, status stok, SKU, & QR code).

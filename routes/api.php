@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\Purchasing\PurchasingQueryController;
 use App\Http\Controllers\Api\PurchasingController;
 use App\Http\Controllers\Api\Reports\ExecSalesReportController;
+use App\Http\Controllers\Api\Reports\ProductMasterStockReportController;
 use App\Http\Controllers\Api\Reports\ReportsController;
 use App\Http\Controllers\Api\ReturnController;
 use App\Http\Controllers\Api\SalesController;
@@ -85,6 +86,7 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
     });
 
     Route::get('reports', ReportsController::class);
+    Route::get('reports/product-master-stock', ProductMasterStockReportController::class);
 
     Route::prefix('reports/exec')->controller(ExecSalesReportController::class)->group(function () {
         Route::get('daily-sales', 'dailySales');

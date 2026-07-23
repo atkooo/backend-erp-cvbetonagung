@@ -151,7 +151,7 @@ class RequirePermission
 
     private function actionFor(Request $request): string
     {
-        if ($request->isMethod('post') && preg_match('/\/(approve|verify|receive|adjust|deliver|ship|refund)$/', $request->path()) === 1) {
+        if ($request->isMethod('post') && preg_match('/\/(approve|reject|verify|receive|adjust|deliver|ship|refund)$/', $request->path()) === 1) {
             return 'approve';
         }
 

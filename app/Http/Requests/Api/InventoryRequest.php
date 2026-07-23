@@ -80,6 +80,7 @@ class InventoryRequest extends FormRequest
                 'warehouse_id' => [...$required, 'uuid', Rule::exists('warehouses', 'id')],
                 'location_id' => [...$nullable, 'uuid', Rule::exists('storage_locations', 'id')],
                 'type' => [...$required, Rule::in(['in', 'out', 'adjustment'])],
+                'reason_code' => [...$nullable, 'string', 'max:255'],
                 'notes' => [...$nullable, 'string'],
                 'items' => [...$required, 'array', 'min:1'],
                 'items.*.product_id' => [...$required, 'uuid', Rule::exists('products', 'id')],

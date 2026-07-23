@@ -16,9 +16,12 @@ class Bag extends Model
         'warehouse_id',
         'location_id',
         'type',
+        'reason_code',
         'notes',
         'status',
         'created_by',
+        'approved_by',
+        'approved_at',
     ];
 
     public function documentNumberPrefix(): string
@@ -49,5 +52,15 @@ class Bag extends Model
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function approvalRequest()
+    {
+        return $this->hasOne(ApprovalRequest::class, 'reference_id')->where('reference_type', 'bag');
     }
 }

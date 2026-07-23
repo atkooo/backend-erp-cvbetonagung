@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Endpoint `GET /api/reports/inventory/mutation`, `GET /api/reports/inventory/low-stock`, `GET /api/reports/inventory/valuation`, dan `GET /api/reports/inventory/dead-stock` beserta action services (`GetStockMutationReportAction`, `GetLowStockReportAction`, `GetInventoryValuationReportAction`, `GetDeadStockReportAction`) & feature test `InventoryReportsApiTest`.
 - Endpoint `GET /api/reports/purchasing/supplier`, `GET /api/reports/purchasing/ap-aging`, dan `GET /api/reports/purchasing/price-analysis` beserta action services (`GetSupplierPurchasesReportAction`, `GetApAgingReportAction`, `GetPurchasePriceAnalysisReportAction`) & feature test `PurchasingReportsApiTest`.
 - Endpoint `GET /api/reports/finance/cashflow`, `GET /api/reports/finance/expenses`, dan `GET /api/reports/finance/profit-loss` beserta action services (`GetCashflowReportAction`, `GetExpensesReportAction`, `GetProfitLossReportAction`) & feature test `FinanceReportsApiTest`.
+- Workflow Enterprise **Berita Acara Gudang (BAG)**: skema dual control approval (`pending_approval`, `approved`, `rejected`), penambahan `reason_code` terstruktur, pemicu `ApprovalRequest`, endpoint `POST /api/inventory/bags/{id}/approve` dan `POST /api/inventory/bags/{id}/reject`, serta pengujian unit `InventoryWorkflowServiceTest`.
 
 ### Fixed
 - Fixed SQL column error (`Unknown column 'order_date'`) on `purchase_orders` in `ExecSalesReportController@grossProfit` by correcting column name to `po_date`.

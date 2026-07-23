@@ -67,13 +67,14 @@ class InventoryWorkflowServiceTest extends TestCase
         ]);
     }
 
-    public function test_process_bag_in_increases_stock()
+    public function test_process_bag_creates_pending_approval_without_changing_stock()
     {
         $attributes = [
             'date' => date('Y-m-d'),
             'warehouse_id' => $this->warehouse->id,
             'location_id' => $this->location->id,
             'type' => 'in',
+            'reason_code' => 'OPNAME_DISCREPANCY',
             'created_by' => $this->admin->id,
             'items' => [
                 [
@@ -86,7 +87,47 @@ class InventoryWorkflowServiceTest extends TestCase
         $bag = $this->service->processBag($attributes);
 
         $this->assertInstanceOf(Bag::class, $bag);
-        $this->assertEquals('in', $bag->type);
+        $this->assertEquals('pending_approval', $bag->status);
+        $this->assertEquals('OPNAME_DISCREPANCY', $bag->reason_code);
+
+        // Stock must remain unchanged before approval
+        $stock = DB::table('product_stocks')
+            ->where('product_id', $this->product->id)
+            ->where('location_id', $this->location->id)
+            ->first();
+
+        $this->assertEquals(100, $stock->quantity);
+
+        // ApprovalRequest must exist
+        $this->assertDatabaseHas('approval_requests', [
+            'reference_type' => 'bag',
+            'reference_id' => $bag->id,
+            'status' => 'pending',
+        ]);
+    }
+
+    public function test_approve_bag_increases_stock_and_records_movement()
+    {
+        $attributes = [
+            'date' => date('Y-m-d'),
+            'warehouse_id' => $this->warehouse->id,
+            'location_id' => $this->location->id,
+            'type' => 'in',
+            'reason_code' => 'EXPIRATION',
+            'created_by' => $this->admin->id,
+            'items' => [
+                [
+                    'product_id' => $this->product->id,
+                    'quantity' => 50,
+                ],
+            ],
+        ];
+
+        $bag = $this->service->processBag($attributes);
+        $approvedBag = $this->service->approveBag($bag->id, $this->admin, 'Approved by supervisor');
+
+        $this->assertEquals('approved', $approvedBag->status);
+        $this->assertEquals($this->admin->id, $approvedBag->approved_by);
 
         $stock = DB::table('product_stocks')
             ->where('product_id', $this->product->id)
@@ -105,13 +146,44 @@ class InventoryWorkflowServiceTest extends TestCase
         ]);
     }
 
-    public function test_process_bag_out_decreases_stock()
+    public function test_reject_bag_marks_rejected_and_leaves_stock_untouched()
     {
         $attributes = [
             'date' => date('Y-m-d'),
             'warehouse_id' => $this->warehouse->id,
             'location_id' => $this->location->id,
             'type' => 'out',
+            'reason_code' => 'DAMAGED_IN_TRANSIT',
+            'created_by' => $this->admin->id,
+            'items' => [
+                [
+                    'product_id' => $this->product->id,
+                    'quantity' => 20,
+                ],
+            ],
+        ];
+
+        $bag = $this->service->processBag($attributes);
+        $rejectedBag = $this->service->rejectBag($bag->id, $this->admin, 'Reason insufficient');
+
+        $this->assertEquals('rejected', $rejectedBag->status);
+
+        $stock = DB::table('product_stocks')
+            ->where('product_id', $this->product->id)
+            ->where('location_id', $this->location->id)
+            ->first();
+
+        $this->assertEquals(100, $stock->quantity); // Remains 100
+    }
+
+    public function test_process_bag_with_auto_approve_updates_stock_immediately()
+    {
+        $attributes = [
+            'date' => date('Y-m-d'),
+            'warehouse_id' => $this->warehouse->id,
+            'location_id' => $this->location->id,
+            'type' => 'out',
+            'auto_approve' => true,
             'created_by' => $this->admin->id,
             'items' => [
                 [
@@ -123,20 +195,13 @@ class InventoryWorkflowServiceTest extends TestCase
 
         $bag = $this->service->processBag($attributes);
 
+        $this->assertEquals('approved', $bag->status);
+
         $stock = DB::table('product_stocks')
             ->where('product_id', $this->product->id)
             ->where('location_id', $this->location->id)
             ->first();
 
         $this->assertEquals(80, $stock->quantity); // 100 - 20
-
-        $this->assertDatabaseHas('stock_movements', [
-            'product_id' => $this->product->id,
-            'from_location_id' => $this->location->id,
-            'type' => 'out',
-            'quantity' => 20,
-            'reference_type' => 'bag',
-            'reference_id' => $bag->id,
-        ]);
     }
 }

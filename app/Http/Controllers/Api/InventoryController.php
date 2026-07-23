@@ -57,9 +57,9 @@ class InventoryController extends ApiResourceController
         ],
         'bags' => [
             'model' => Bag::class,
-            'searchable' => ['bag_number', 'notes'],
+            'searchable' => ['bag_number', 'notes', 'reason_code'],
             'sortable' => ['bag_number', 'date', 'type', 'status', 'created_at'],
-            'relations' => ['warehouse', 'location', 'createdBy', 'items.product'],
+            'relations' => ['warehouse', 'location', 'createdBy', 'approvedBy', 'approvalRequest', 'items.product'],
         ],
         'bag-items' => [
             'model' => BagItem::class,
@@ -165,6 +165,28 @@ class InventoryController extends ApiResourceController
 
         return response()->json([
             'data' => $item->fresh(['session', 'product', 'location', 'approvalRequest']),
+        ]);
+    }
+
+    public function approveBag(Request $request, string $id): JsonResponse
+    {
+        $notes = $request->input('notes');
+        $bag = $this->inventoryWorkflow->approveBag($id, $request->user(), $notes);
+
+        return response()->json([
+            'data' => $bag->fresh(['warehouse', 'location', 'createdBy', 'approvedBy', 'approvalRequest', 'items.product']),
+            'message' => 'Berita Acara Gudang berhasil disetujui dan stok diperbarui.',
+        ]);
+    }
+
+    public function rejectBag(Request $request, string $id): JsonResponse
+    {
+        $notes = $request->input('notes');
+        $bag = $this->inventoryWorkflow->rejectBag($id, $request->user(), $notes);
+
+        return response()->json([
+            'data' => $bag->fresh(['warehouse', 'location', 'createdBy', 'approvedBy', 'approvalRequest', 'items.product']),
+            'message' => 'Berita Acara Gudang berhasil ditolak.',
         ]);
     }
 

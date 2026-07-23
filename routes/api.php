@@ -174,6 +174,11 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
         Route::post('stock-opname-items/{id}/adjust', 'adjustStockOpnameItem')
             ->whereUuid('id');
 
+        Route::post('bags/{id}/approve', 'approveBag')
+            ->whereUuid('id');
+        Route::post('bags/{id}/reject', 'rejectBag')
+            ->whereUuid('id');
+
         Route::get('product-stocks/{productId}/{locationId}', 'showProductStock')
             ->whereUuid(['productId', 'locationId']);
         Route::match(['put', 'patch'], 'product-stocks/{productId}/{locationId}', 'updateProductStock')

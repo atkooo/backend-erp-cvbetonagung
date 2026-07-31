@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.0.0] - 2026-07-31
 ### Added
 - Initial project setup.
 - Endpoint `GET /api/reports/product-master-stock` dan `GetProductMasterStockReportAction` untuk Laporan Master Produk Stok (COGS, harga jual, margin, valuasi stok, status stok, SKU, & QR code).

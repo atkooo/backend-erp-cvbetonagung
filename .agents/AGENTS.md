@@ -217,3 +217,9 @@ Saat mengerjakan task backend, AI harus:
 7. Menjalankan/menyebutkan hasil code style check (Pint) karena ini adalah tool standar yang ada di proyek.
 8. Menjelaskan jika ada bagian yang belum bisa diuji dan alasannya.
 9. Setiap kali melakukan perubahan fitur, perbaikan bug, atau pembaruan sistem lainnya, WAJIB mendokumentasikan perubahan tersebut ke dalam file `CHANGELOG.md` yang relevan.
+
+---
+
+## 12. UI Cleanliness & Naming Rules
+- **Dilarang Menambahkan Teks Fluff / Gimmick di UI Header/Title:** Dilarang keras menambahkan frasa gimmick seperti `— Enterprise Edition`, `Pro Version`, `V2`, `Ultimate`, atau gimmick sejenis pada judul header, modal, card, atau label UI.
+- Gunakan nama yang bersih, baku, profesional, dan langsung pada fungsinya (contoh: `Berita Acara Gudang (BAG)`).

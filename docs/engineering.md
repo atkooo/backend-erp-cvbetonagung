@@ -411,3 +411,48 @@ php artisan test --filter=SalesTest
 - Naming kolom: `snake_case`
 - Naming model: `PascalCase` (singular)
 - Naming tabel: `snake_case` (plural)
+
+---
+
+## 12. Artisan Commands (CLI)
+
+Backend ERP menyediakan beberapa Artisan Custom Command untuk kebutuhan audit stok, rekonsiliasi data, dan manajemen riwayat mutasi.
+
+### 12.1 `inventory:reconcile`
+* **File Class:** [`app/Console/Commands/ReconcileInventory.php`](file:///d:/Okta/Project/2025-ALURIN-system/2026-ALURIN-System-ERP/backend/app/Console/Commands/ReconcileInventory.php)
+* **Deskripsi:** Melakukan audit dan rekonsiliasi stok antara *snapshot* tabel `product_stocks` dengan akumulasi riwayat transaksi pada `stock_movements`.
+* **Signature:**
+  ```bash
+  php artisan inventory:reconcile [--auto-correct]
+  ```
+* **Opsi / Flag:**
+  * `--auto-correct`: Memperbarui secara otomatis kolom `quantity` pada `product_stocks` agar sesuai dengan kalkulasi riwayat `stock_movements` jika ditemukan selisih.
+* **Alur & Cara Kerja:**
+  1. **Auto-healing missing records:** Mengidentifikasi kombinasi `product_id` dan `location_id` yang tercatat di `stock_movements` tetapi belum terdaftar di `product_stocks`, lalu otomatis menginisialisasi record stok baru dengan kuantitas `0`.
+  2. **Akumulasi Riwayat:** Mengkalkulasi total kuantitas masuk (`to_location_id`) dikurangi total kuantitas keluar (`from_location_id`) per produk dan lokasi dari tabel `stock_movements`.
+  3. **Verifikasi & Deteksi Selisih:** Membandingkan kuantitas hasil kalkulasi dengan snapshot `quantity` di `product_stocks`.
+  4. **Output Audit & Koreksi:** Menampilkan daftar selisih (jika ada). Jika flag `--auto-correct` disertakan, nilai `quantity` pada `product_stocks` langsung diperbarui ke angka kalkulasi yang benar.
+
+### 12.2 `inventory:reset-movements`
+* **File Class:** [`app/Console/Commands/ResetStockMovements.php`](file:///d:/Okta/Project/2025-ALURIN-system/2026-ALURIN-System-ERP/backend/app/Console/Commands/ResetStockMovements.php)
+* **Deskripsi:** Mereset total riwayat mutasi stok (`stock_movements`) dan menetapkan kuantitas stok saat ini (`product_stocks > 0`) sebagai data **Stock Awal**.
+* **Signature:**
+  ```bash
+  php artisan inventory:reset-movements
+  ```
+* **Peringatan Risk / Destruktif:** ⚠️ **Operasi Berisiko Tinggi**. Perintah ini menghapus seluruh riwayat `stock_movements`. Sistem akan meminta konfirmasi interaktif sebelum melanjutkan.
+* **Alur & Cara Kerja:**
+  1. Meminta konfirmasi eksekusi dari pengguna.
+  2. Mengosongkan (*truncate*) tabel `stock_movements` dengan menonaktifkan sementara *foreign key checks*.
+  3. Membaca seluruh data `product_stocks` yang memiliki `quantity > 0`.
+  4. Menyiapkan entri transaksi mutasi stok baru berjenis `in` dengan referensi `STOCK-AWAL` dan catatan `Stok Awal Sistem`.
+  5. Memasukkan entri mutasi baru secara efisien dalam kelompok *batch* (chunk 500 item) di dalam *database transaction*.
+
+### 12.3 `app:check-product`
+* **File Class:** [`app/Console/Commands/CheckProduct.php`](file:///d:/Okta/Project/2025-ALURIN-system/2026-ALURIN-System-ERP/backend/app/Console/Commands/CheckProduct.php)
+* **Deskripsi:** Perintah utilitas internal untuk pemeriksaan/pengujian data produk.
+* **Signature:**
+  ```bash
+  php artisan app:check-product
+  ```
+

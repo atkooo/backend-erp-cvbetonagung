@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+- Fixed `Unknown API resource` (404) error on penerimaan barang / Goods Receipt Note (GRN) by adding `goods-receipts` and `goods-receipt-items` resource mapping and handling in `PurchasingController`.
 
 ## [1.0.0] - 2026-07-31
 ### Added

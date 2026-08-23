@@ -254,4 +254,34 @@ class PurchasingApiTest extends TestCase
             'status' => 'processing',
         ])->assertUnprocessable();
     }
+
+    public function test_purchasing_api_supports_goods_receipts_alias(): void
+    {
+        $this->seed();
+
+        $product = Product::query()->where('sku', 'MTL-0001')->firstOrFail();
+        $location = StorageLocation::query()->where('code', 'DEFAULT')->firstOrFail();
+        $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
+
+        $response = $this->postJson('/api/purchasing/goods-receipts', [
+            'purchase_order_id' => null,
+            'to_location_id' => $location->id,
+            'received_by' => $admin->id,
+            'receipt_date' => '2026-06-06',
+            'delivery_order_number' => 'SJ-ALIAS-001',
+            'status' => 'posted',
+            'notes' => 'Manual GRN using goods-receipts endpoint alias.',
+            'items' => [
+                [
+                    'purchase_order_item_id' => null,
+                    'product_id' => $product->id,
+                    'received_quantity' => 1,
+                    'rejected_quantity' => 0,
+                ],
+            ],
+        ]);
+
+        $response->assertCreated();
+    }
 }
+

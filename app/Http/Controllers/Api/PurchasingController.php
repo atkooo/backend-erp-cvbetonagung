@@ -58,7 +58,19 @@ class PurchasingController extends ApiResourceController
             'sortable' => ['grn_number', 'receipt_date', 'status'],
             'relations' => ['purchaseOrder', 'warehouse', 'toLocation', 'receiver', 'items.product', 'items.product.unit'],
         ],
+        'goods-receipts' => [
+            'model' => GoodsReceiptNote::class,
+            'searchable' => ['grn_number', 'delivery_order_number', 'notes'],
+            'sortable' => ['grn_number', 'receipt_date', 'status'],
+            'relations' => ['purchaseOrder', 'warehouse', 'toLocation', 'receiver', 'items.product', 'items.product.unit'],
+        ],
         'goods-receipt-note-items' => [
+            'model' => GoodsReceiptNoteItem::class,
+            'searchable' => ['notes'],
+            'sortable' => ['received_qty', 'rejected_qty'],
+            'relations' => ['goodsReceiptNote', 'purchaseOrderItem', 'product'],
+        ],
+        'goods-receipt-items' => [
             'model' => GoodsReceiptNoteItem::class,
             'searchable' => ['notes'],
             'sortable' => ['received_qty', 'rejected_qty'],
@@ -101,7 +113,7 @@ class PurchasingController extends ApiResourceController
 
     public function store(PurchasingRequest $request, string $resource): JsonResponse
     {
-        if ($resource === 'goods-receipt-notes') {
+        if ($resource === 'goods-receipt-notes' || $resource === 'goods-receipts') {
             $receipt = $this->purchasingWorkflow->processGoodsReceipt($request->validated());
 
             return response()->json([

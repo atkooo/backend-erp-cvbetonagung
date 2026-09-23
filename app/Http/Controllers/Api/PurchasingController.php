@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Api\CancelDocumentRequest;
+use App\Http\Requests\Api\GenerateRestockPoRequest;
 use App\Http\Requests\Api\PurchasingRequest;
 use App\Http\Requests\Api\ReceivePurchaseOrderRequest;
 use App\Models\GoodsReceiptNote;
@@ -17,6 +18,7 @@ use App\Models\RfqItem;
 use App\Models\SupplierPayable;
 use App\Services\CancellationService;
 use App\Services\PurchasingWorkflowService;
+use App\Services\RestockSuggestionService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -225,6 +227,25 @@ class PurchasingController extends ApiResourceController
         return response()->json([
             'data' => $payable->fresh(['supplier', 'purchaseOrder']),
         ]);
+    }
+
+    public function restockSuggestions(Request $request, RestockSuggestionService $service): JsonResponse
+    {
+        $suggestions = $service->getSuggestions($request->all());
+
+        return response()->json([
+            'data' => $suggestions,
+        ]);
+    }
+
+    public function generateRestockPo(GenerateRestockPoRequest $request, RestockSuggestionService $service): JsonResponse
+    {
+        $po = $service->generatePurchaseOrder($request->validated(), $request->user()?->id);
+
+        return response()->json([
+            'message' => 'Purchase Order restok berhasil dibuat',
+            'data' => $po,
+        ], 201);
     }
 
     protected function filterableColumns(): array

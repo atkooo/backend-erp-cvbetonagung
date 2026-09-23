@@ -155,6 +155,17 @@ class SalesController extends ApiResourceController
         return (new JsonResource($salesOrder->fresh($config['relations'] ?? [])))->response()->setStatusCode(200);
     }
 
+    public function generateWorkOrders(Request $request, string $id, SalesWorkflowService $service): JsonResponse
+    {
+        $salesOrder = SalesOrder::findOrFail($id);
+        $wos = $service->autoGenerateWorkOrdersForSalesOrder($salesOrder);
+
+        return response()->json([
+            'message' => 'Work order antrian berhasil digenerate',
+            'data' => $wos,
+        ]);
+    }
+
     public function createDeliveryOrder(CreateDeliveryOrderRequest $request, string $id, SalesWorkflowService $service): JsonResponse
     {
         $deliveryOrder = $service->createDeliveryOrder($id, $request->validated());

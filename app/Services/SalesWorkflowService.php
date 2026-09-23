@@ -11,11 +11,13 @@ use App\Models\DeliveryOrderItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Product;
+use App\Models\ProductionWorkOrder;
 use App\Models\ProductStock;
 use App\Models\Quotation;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Models\StockMovement;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -103,6 +105,8 @@ class SalesWorkflowService
                     'subtotal' => $item->subtotal,
                 ]);
             }
+
+            $this->autoGenerateWorkOrdersForSalesOrder($salesOrder);
 
             return $salesOrder;
         });
@@ -196,6 +200,8 @@ class SalesWorkflowService
                 $globalDiscountAmount = (float) ($attributes['global_discount_amount'] ?? 0);
                 $salesOrder->forceFill(['total' => max(0, $subtotal - $globalDiscountAmount)])->save();
             }
+
+            $this->autoGenerateWorkOrdersForSalesOrder($salesOrder);
 
             return $salesOrder->fresh(['customer', 'quotation', 'items.product', 'deliveryOrders']) ?? $salesOrder;
         });
@@ -685,5 +691,78 @@ class SalesWorkflowService
             $productName = Product::find($productId)->name ?? 'Unknown';
             throw new InsufficientStockException($productName, $qtyNeeded, $totalStock);
         }
+    }
+
+    /**
+     * Tentukan apakah suatu produk merupakan barang hasil produksi sendiri.
+     */
+    public function isSelfProducedProduct(Product $product): bool
+    {
+        if ($product->type === 'raw_material' || $product->type === 'service') {
+            return false;
+        }
+
+        if (in_array($product->type, ['finished_good', 'finished_goods', 'manufactured'], true)) {
+            return true;
+        }
+
+        return $product->boms()->exists();
+    }
+
+    /**
+     * Otomasi pembuatan Work Order (WO) untuk barang produksi sendiri dari Sales Order.
+     * Masuk ke dalam antrian produksi (stage: Draft, progress: 0, belum dikerjakan).
+     *
+     * @return array<int, ProductionWorkOrder>
+     */
+    public function autoGenerateWorkOrdersForSalesOrder(SalesOrder $salesOrder): array
+    {
+        $salesOrder->loadMissing(['customer', 'items.product.boms']);
+
+        $createdWos = [];
+
+        foreach ($salesOrder->items as $item) {
+            $product = $item->product;
+            if (! $product || ! $this->isSelfProducedProduct($product)) {
+                continue;
+            }
+
+            // Cek apakah WO untuk SO dan produk ini sudah ada (idempotensi)
+            $existingWo = ProductionWorkOrder::query()
+                ->where('sales_order_id', $salesOrder->id)
+                ->where('product_id', $product->id)
+                ->first();
+
+            if ($existingWo !== null) {
+                $createdWos[] = $existingWo;
+
+                continue;
+            }
+
+            $customerName = $salesOrder->customer?->name ?? 'Pelanggan';
+            $dueDate = $salesOrder->order_date
+                ? Carbon::parse($salesOrder->order_date)->addDays(7)->toDateString()
+                : now()->addDays(7)->toDateString();
+
+            $targetQty = (float) $item->quantity;
+            if ($item->piece_count && $item->piece_count > 0) {
+                $targetQty = (float) $item->piece_count;
+            }
+
+            $wo = ProductionWorkOrder::query()->create([
+                'product_id' => $product->id,
+                'sales_order_id' => $salesOrder->id,
+                'source_label' => "SO: {$salesOrder->order_number} - {$customerName}",
+                'stage' => 'Draft',
+                'target_qty' => $targetQty,
+                'completed_qty' => 0,
+                'progress' => 0,
+                'due_date' => $dueDate,
+            ]);
+
+            $createdWos[] = $wo;
+        }
+
+        return $createdWos;
     }
 }

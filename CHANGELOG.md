@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- **Otomasi Pembuatan Work Order (WO) dari Sales Order**:
+  - Penambahan logika otomatisasi pada `SalesWorkflowService` (`autoGenerateWorkOrdersForSalesOrder` & `isSelfProducedProduct`).
+  - Pembuatan SPK / Work Order otomatis ke antrian produksi (`stage: 'Draft'`, `progress: 0`) saat SO dibuat/disetujui, khusus untuk produk hasil produksi sendiri (`type === 'finished_good'` atau memiliki BOM) dan melewatkan produk bahan baku / barang beli.
+  - Endpoint manual trigger: `POST /api/sales/sales-orders/{id}/generate-work-orders`.
+  - Feature test: `SalesOrderAutoWorkOrderTest`.
+- **Fitur Restok Barang Kosong via Purchase Order (PO)**:
+  - `RestockSuggestionService`: kalkulasi defisit stok barang kosong/menipis dan pembuatan Purchase Order otomatis.
+  - FormRequest: `GenerateRestockPoRequest`.
+  - Endpoint: `GET /api/purchasing/restock-suggestions` dan `POST /api/purchasing/restock-generate-po`.
+  - Feature test: `RestockPoGenerationTest`.
+
 ### Fixed
 - Fixed `Unknown API resource` (404) error on penerimaan barang / Goods Receipt Note (GRN) by adding `goods-receipts` and `goods-receipt-items` resource mapping and handling in `PurchasingController`.
 

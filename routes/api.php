@@ -212,6 +212,8 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
         ->whereUuid('id');
     Route::post('sales/sales-orders/{id}/approve', [SalesController::class, 'approveSalesOrder'])
         ->whereUuid('id');
+    Route::post('sales/sales-orders/{id}/generate-work-orders', [SalesController::class, 'generateWorkOrders'])
+        ->whereUuid('id');
     Route::post('sales/sales-orders/{id}/deliver', [SalesController::class, 'createDeliveryOrder'])
         ->whereUuid('id');
     Route::post('sales/sales-orders/{id}/cancel', [SalesController::class, 'cancelSalesOrder'])
@@ -253,6 +255,8 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
         ->whereUuid('id');
     Route::post('purchasing/supplier-payables/{id}/cancel', [PurchasingController::class, 'cancelSupplierPayable'])
         ->whereUuid('id');
+    Route::get('purchasing/restock-suggestions', [PurchasingController::class, 'restockSuggestions']);
+    Route::post('purchasing/restock-generate-po', [PurchasingController::class, 'generateRestockPo']);
 
     Route::prefix('purchasing/{resource}')
         ->whereIn('resource', [

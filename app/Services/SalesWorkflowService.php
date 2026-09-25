@@ -135,7 +135,7 @@ class SalesWorkflowService
                 ])->save();
             }
 
-            return $quotation->fresh(['customer', 'items.product']) ?? $quotation;
+            return $quotation->fresh(['customer', 'items.product.unit']) ?? $quotation;
         });
     }
 
@@ -167,7 +167,7 @@ class SalesWorkflowService
                 ])->save();
             }
 
-            return $quotation->fresh(['customer', 'items.product']) ?? $quotation;
+            return $quotation->fresh(['customer', 'items.product.unit']) ?? $quotation;
         });
     }
 
@@ -196,6 +196,12 @@ class SalesWorkflowService
                     $salesOrder->forceFill(['total' => $quotation->total])->save();
                 }
             } elseif ($hasItems && ! empty($items)) {
+                if (! empty($attributes['quotation_id'])) {
+                    $quotation = Quotation::query()->find($attributes['quotation_id']);
+                    if ($quotation && $quotation->status !== 'approved') {
+                        $quotation->forceFill(['status' => 'approved'])->save();
+                    }
+                }
                 [$subtotal] = $this->createLineItems($salesOrder, 'sales-order', $items);
                 $globalDiscountAmount = (float) ($attributes['global_discount_amount'] ?? 0);
                 $salesOrder->forceFill(['total' => max(0, $subtotal - $globalDiscountAmount)])->save();
@@ -203,7 +209,7 @@ class SalesWorkflowService
 
             $this->autoGenerateWorkOrdersForSalesOrder($salesOrder);
 
-            return $salesOrder->fresh(['customer', 'quotation', 'items.product', 'deliveryOrders']) ?? $salesOrder;
+            return $salesOrder->fresh(['customer', 'quotation', 'items.product.unit', 'deliveryOrders']) ?? $salesOrder;
         });
     }
 

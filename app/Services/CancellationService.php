@@ -17,6 +17,7 @@ use App\Models\Quotation;
 use App\Models\Rfq;
 use App\Models\SalesOrder;
 use App\Models\StockMovement;
+use App\Models\StockProductionRequest;
 use App\Models\SupplierPayable;
 use Illuminate\Support\Facades\DB;
 
@@ -217,7 +218,7 @@ class CancellationService
         return DB::transaction(function () use ($id, $userId, $reason): SalesOrder {
             /** @var SalesOrder $so */
             $so = SalesOrder::query()
-                ->with(['deliveryOrders', 'invoices'])
+                ->with(['deliveryOrders', 'invoices', 'productionWorkOrders.logs', 'productionWorkOrders.tasks'])
                 ->lockForUpdate()
                 ->whereKey($id)
                 ->firstOrFail();
@@ -247,6 +248,43 @@ class CancellationService
                 'Tidak dapat membatalkan Sales Order karena masih ada '.
                 $activeInvoices->count().' Invoice aktif. Batalkan semua Invoice terlebih dahulu.'
             );
+
+            // Guard & Cascade Work Order (Hybrid Rule)
+            $activeWorkOrders = $so->productionWorkOrders
+                ->filter(fn (ProductionWorkOrder $w) => $w->stage !== 'cancelled');
+
+            if ($activeWorkOrders->isNotEmpty()) {
+                // Periksa apakah ada WO yang sudah berjalan / ada pengerjaan di lantai produksi
+                $inProgressWos = $activeWorkOrders->filter(function (ProductionWorkOrder $wo): bool {
+                    if ((float) $wo->completed_qty > 0) {
+                        return true;
+                    }
+                    if ($wo->logs->isNotEmpty()) {
+                        return true;
+                    }
+                    if ($wo->tasks->contains(fn ($t) => in_array($t->status, ['In Progress', 'Completed', 'In Review'], true))) {
+                        return true;
+                    }
+                    if (! in_array(strtolower($wo->stage), ['draft', 'pending', 'open'], true)) {
+                        return true;
+                    }
+
+                    return false;
+                });
+
+                abort_if(
+                    $inProgressWos->isNotEmpty(),
+                    422,
+                    'Tidak dapat membatalkan Sales Order karena Work Order ('.
+                    $inProgressWos->pluck('work_order_number')->join(', ').
+                    ') sudah dalam proses pengerjaan di lantai produksi. Batalkan atau selesaikan Work Order terkait terlebih dahulu.'
+                );
+
+                // Jika belum berjalan (masih Draft/Open/Pending), batalkan otomatis seluruh WO terkait
+                foreach ($activeWorkOrders as $wo) {
+                    $this->cancelWorkOrder($wo->id, $userId, 'Dibatalkan otomatis karena Sales Order '.$so->order_number.' dibatalkan: '.$reason);
+                }
+            }
 
             $so->forceFill([
                 'status' => 'cancelled',
@@ -659,33 +697,119 @@ class CancellationService
 
     /**
      * Batalkan Project.
-     * Memastikan tidak ada Work Order aktif sebelum dibatalkan.
+     * Guard & Cascade Work Order (Hybrid Rule)
      */
     public function cancelProject(string $id, string $userId, string $reason = ''): Project
     {
-        return DB::transaction(function () use ($id): Project {
+        return DB::transaction(function () use ($id, $userId, $reason): Project {
             $project = Project::query()
+                ->with(['productionWorkOrders.logs', 'productionWorkOrders.tasks'])
                 ->lockForUpdate()
                 ->whereKey($id)
                 ->firstOrFail();
 
             abort_if($project->status === 'cancelled', 422, 'Project sudah dibatalkan sebelumnya.');
 
-            $activeWOs = ProductionWorkOrder::where('project_id', $project->id)
-                ->where('stage', '!=', 'cancelled')
-                ->count();
+            $activeWorkOrders = $project->productionWorkOrders
+                ->filter(fn (ProductionWorkOrder $w) => $w->stage !== 'cancelled');
 
-            abort_if(
-                $activeWOs > 0,
-                422,
-                'Tidak dapat membatalkan Project karena masih ada '.$activeWOs.' Work Order aktif. Batalkan semua WO terlebih dahulu.'
-            );
+            if ($activeWorkOrders->isNotEmpty()) {
+                $inProgressWos = $activeWorkOrders->filter(function (ProductionWorkOrder $wo): bool {
+                    if ((float) $wo->completed_qty > 0) {
+                        return true;
+                    }
+                    if ($wo->logs->isNotEmpty()) {
+                        return true;
+                    }
+                    if ($wo->tasks->contains(fn ($t) => in_array($t->status, ['In Progress', 'Completed', 'In Review'], true))) {
+                        return true;
+                    }
+                    if (! in_array(strtolower($wo->stage), ['draft', 'pending', 'open'], true)) {
+                        return true;
+                    }
+
+                    return false;
+                });
+
+                abort_if(
+                    $inProgressWos->isNotEmpty(),
+                    422,
+                    'Tidak dapat membatalkan Project karena Work Order ('.
+                    $inProgressWos->pluck('work_order_number')->join(', ').
+                    ') sudah dalam proses pengerjaan di lantai produksi. Batalkan atau selesaikan Work Order terkait terlebih dahulu.'
+                );
+
+                foreach ($activeWorkOrders as $wo) {
+                    $this->cancelWorkOrder($wo->id, $userId, 'Dibatalkan otomatis karena Project '.$project->projectName.' dibatalkan: '.$reason);
+                }
+            }
 
             $project->forceFill([
                 'status' => 'cancelled',
             ])->save();
 
             return $project->fresh();
+        });
+    }
+
+    /**
+     * Batalkan Permintaan Produksi Stok (Stock Production Request).
+     * Guard & Cascade Work Order (Hybrid Rule)
+     */
+    public function cancelStockProductionRequest(string $id, string $userId, string $reason = ''): StockProductionRequest
+    {
+        return DB::transaction(function () use ($id, $userId, $reason): StockProductionRequest {
+            /** @var StockProductionRequest $spr */
+            $spr = StockProductionRequest::query()
+                ->with(['workOrders.logs', 'workOrders.tasks'])
+                ->lockForUpdate()
+                ->whereKey($id)
+                ->firstOrFail();
+
+            abort_if($spr->isCancelled(), 422, 'Permintaan Produksi Stok sudah dibatalkan sebelumnya.');
+
+            $activeWorkOrders = $spr->workOrders
+                ->filter(fn (ProductionWorkOrder $w) => $w->stage !== 'cancelled');
+
+            if ($activeWorkOrders->isNotEmpty()) {
+                $inProgressWos = $activeWorkOrders->filter(function (ProductionWorkOrder $wo): bool {
+                    if ((float) $wo->completed_qty > 0) {
+                        return true;
+                    }
+                    if ($wo->logs->isNotEmpty()) {
+                        return true;
+                    }
+                    if ($wo->tasks->contains(fn ($t) => in_array($t->status, ['In Progress', 'Completed', 'In Review'], true))) {
+                        return true;
+                    }
+                    if (! in_array(strtolower($wo->stage), ['draft', 'pending', 'open'], true)) {
+                        return true;
+                    }
+
+                    return false;
+                });
+
+                abort_if(
+                    $inProgressWos->isNotEmpty(),
+                    422,
+                    'Tidak dapat membatalkan Permintaan Produksi Stok karena Work Order ('.
+                    $inProgressWos->pluck('work_order_number')->join(', ').
+                    ') sudah dalam proses pengerjaan di lantai produksi. Batalkan atau selesaikan Work Order terkait terlebih dahulu.'
+                );
+
+                foreach ($activeWorkOrders as $wo) {
+                    $this->cancelWorkOrder($wo->id, $userId, 'Dibatalkan otomatis karena Permintaan Stok '.$spr->request_number.' dibatalkan: '.$reason);
+                }
+            }
+
+            $spr->forceFill([
+                'status' => 'cancelled',
+                'cancelled_by' => $userId,
+                'cancelled_at' => now(),
+                'cancel_reason' => $reason,
+            ])->save();
+
+            return $spr->fresh();
         });
     }
 

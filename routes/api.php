@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\Reports\PurchasingReportController;
 use App\Http\Controllers\Api\Reports\ReportsController;
 use App\Http\Controllers\Api\ReturnController;
 use App\Http\Controllers\Api\SalesController;
+use App\Http\Controllers\Api\StockProductionRequestController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\SupportController;
 use App\Http\Controllers\Api\SystemController;
@@ -345,6 +346,12 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function () {
         ->whereUuid('id');
     Route::post('production/work-orders/{id}/cancel', [ProductionController::class, 'cancelWorkOrder'])
         ->whereUuid('id');
+    Route::post('production/stock-production-requests/{id}/approve', [StockProductionRequestController::class, 'approve'])
+        ->whereUuid('id');
+    Route::post('production/stock-production-requests/{id}/cancel', [StockProductionRequestController::class, 'cancel'])
+        ->whereUuid('id');
+    Route::apiResource('production/stock-production-requests', StockProductionRequestController::class)
+        ->only(['index', 'store', 'show']);
 
     Route::prefix('production/{resource}')
         ->whereIn('resource', [

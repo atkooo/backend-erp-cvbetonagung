@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'product_id',
     'sales_order_id',
     'project_id',
+    'stock_production_request_id',
     'source_label',
     'stage',
     'target_qty',
@@ -116,6 +117,11 @@ class ProductionWorkOrder extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
+    }
+
+    public function stockProductionRequest(): BelongsTo
+    {
+        return $this->belongsTo(StockProductionRequest::class);
     }
 
     public function items(): HasMany

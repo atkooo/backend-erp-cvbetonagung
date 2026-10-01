@@ -39,7 +39,7 @@ class ProductionController extends ApiResourceController
             'model' => ProductionWorkOrder::class,
             'searchable' => ['work_order_number', 'source_label', 'stage'],
             'sortable' => ['work_order_number', 'stage', 'target_qty', 'completed_qty', 'progress', 'due_date', 'created_at'],
-            'relations' => ['product', 'salesOrder', 'salesOrder.customer', 'project', 'items.product', 'logs.employee', 'tasks.assignedEmployee'],
+            'relations' => ['product', 'salesOrder', 'salesOrder.customer', 'project', 'stockProductionRequest', 'items.product', 'logs.employee', 'tasks.assignedEmployee'],
         ],
         'work-order-items' => [
             'model' => ProductionWorkOrderItem::class,
@@ -126,6 +126,7 @@ class ProductionController extends ApiResourceController
             'product_id',
             'sales_order_id',
             'project_id',
+            'stock_production_request_id',
             'work_order_id',
             'employee_id',
             'bom_id',

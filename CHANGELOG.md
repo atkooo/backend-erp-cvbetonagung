@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Workflow Work Order Berbasis Dokumen Referensi & Permintaan Produksi Stok (SPR)**:
+  - Penambahan model & migrasi `StockProductionRequest` dan `StockProductionRequestItem` sebagai dokumen induk Make to Stock (MTS).
+  - Penambahan kolom relasi `stock_production_request_id` pada `production_work_orders`.
+  - Service `StockProductionRequestService` untuk pembuatan draft SPR dan approval otomatis yang menerbitkan WO terkait.
+  - Controller `StockProductionRequestController` beserta form validation `StockProductionRequestStoreRequest`.
+  - Endpoint baru:
+    - `GET/POST /api/production/stock-production-requests`
+    - `POST /api/production/stock-production-requests/{id}/approve`
+    - `POST /api/production/stock-production-requests/{id}/cancel`
+- **Aturan Pembatalan Runtut Hybrid (Cancellation Chain)**:
+  - Penambahan logika guard dan cascade pembatalan pada `CancellationService::cancelSalesOrder`, `cancelProject`, dan `cancelStockProductionRequest`.
+  - Jika WO turunan masih berstatus `Draft`/`Pending` (belum dikerjakan), WO otomatis ikut dibatalkan bersama dokumen induknya.
+  - Jika WO turunan sudah berjalan (`In Progress`, memiliki work logs tukang, atau `completed_qty > 0`), pembatalan dokumen induk ditolak dengan error 422 yang menyertakan nomor WO yang sedang berjalan.
+  - Feature test: `WorkOrderWorkflowAndCancellationTest`.
 - **Otomasi Pembuatan Work Order (WO) dari Sales Order**:
   - Penambahan logika otomatisasi pada `SalesWorkflowService` (`autoGenerateWorkOrdersForSalesOrder` & `isSelfProducedProduct`).
   - Pembuatan SPK / Work Order otomatis ke antrian produksi (`stage: 'Draft'`, `progress: 0`) saat SO dibuat/disetujui, khusus untuk produk hasil produksi sendiri (`type === 'finished_good'` atau memiliki BOM) dan melewatkan produk bahan baku / barang beli.

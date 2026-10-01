@@ -140,4 +140,57 @@ class SalesOrderAutoWorkOrderTest extends TestCase
         $res2->assertOk();
         $this->assertEquals(1, ProductionWorkOrder::where('sales_order_id', $so->id)->count());
     }
+
+    public function test_sales_order_with_multiple_items_same_product_different_sizes_creates_multiple_work_orders(): void
+    {
+        $product = Product::create([
+            'sku' => 'PRD-TIANG-01',
+            'name' => 'Tiang Serut Kotak 30 cm',
+            'type' => 'finished_good',
+            'unit_id' => $this->unit->id,
+            'cost_price' => 350000,
+            'selling_price' => 450000,
+            'min_stock' => 5,
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson('/api/sales/sales-orders', [
+            'customer_id' => $this->customer->id,
+            'order_date' => date('Y-m-d'),
+            'notes' => 'Tiang beton custom ukuran',
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'quantity' => 8.2,
+                    'piece_count' => 2,
+                    'length' => 4.10,
+                    'unit_price' => 450000,
+                ],
+                [
+                    'product_id' => $product->id,
+                    'quantity' => 6.6,
+                    'piece_count' => 2,
+                    'length' => 3.30,
+                    'unit_price' => 450000,
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(201);
+        $soId = $response->json('data.id');
+
+        $wos = ProductionWorkOrder::where('sales_order_id', $soId)->get();
+
+        // Harus membuat 2 WO meskipun produknya sama, karena beda ukuran/item
+        $this->assertCount(2, $wos);
+
+        $wo1 = $wos->firstWhere('source_label', 'like', '%4.1m%');
+        $wo2 = $wos->firstWhere('source_label', 'like', '%3.3m%');
+
+        $this->assertNotNull($wo1);
+        $this->assertNotNull($wo2);
+        $this->assertEquals(2, (float) $wo1->target_qty);
+        $this->assertEquals(2, (float) $wo2->target_qty);
+        $this->assertNotEquals($wo1->id, $wo2->id);
+    }
 }
+

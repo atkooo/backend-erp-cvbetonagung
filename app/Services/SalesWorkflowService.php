@@ -733,13 +733,22 @@ class SalesWorkflowService
                 continue;
             }
 
-            // Cek apakah WO untuk SO dan produk ini sudah ada (idempotensi)
+            // Cek apakah WO untuk item SO ini sudah ada (idempotensi berbasis item)
             $existingWo = ProductionWorkOrder::query()
-                ->where('sales_order_id', $salesOrder->id)
-                ->where('product_id', $product->id)
+                ->where(function ($query) use ($salesOrder, $item, $product) {
+                    $query->where('sales_order_item_id', $item->id)
+                        ->orWhere(function ($fallback) use ($salesOrder, $product) {
+                            $fallback->whereNull('sales_order_item_id')
+                                ->where('sales_order_id', $salesOrder->id)
+                                ->where('product_id', $product->id);
+                        });
+                })
                 ->first();
 
             if ($existingWo !== null) {
+                if (! $existingWo->sales_order_item_id) {
+                    $existingWo->update(['sales_order_item_id' => $item->id]);
+                }
                 $createdWos[] = $existingWo;
 
                 continue;
@@ -755,10 +764,27 @@ class SalesWorkflowService
                 $targetQty = (float) $item->piece_count;
             }
 
+            $specParts = [];
+            if ($item->length && (float) $item->length > 0) {
+                $specParts[] = 'P: ' . (float) $item->length . 'm';
+            }
+            if ($item->specification) {
+                $specParts[] = $item->specification;
+            }
+            if ($item->piece_count && (float) $item->piece_count > 0) {
+                $specParts[] = (float) $item->piece_count . ' btg';
+            }
+
+            $sourceLabel = "SO: {$salesOrder->order_number} - {$customerName}";
+            if (! empty($specParts)) {
+                $sourceLabel .= ' (' . implode(', ', $specParts) . ')';
+            }
+
             $wo = ProductionWorkOrder::query()->create([
                 'product_id' => $product->id,
                 'sales_order_id' => $salesOrder->id,
-                'source_label' => "SO: {$salesOrder->order_number} - {$customerName}",
+                'sales_order_item_id' => $item->id,
+                'source_label' => $sourceLabel,
                 'stage' => 'Draft',
                 'target_qty' => $targetQty,
                 'completed_qty' => 0,

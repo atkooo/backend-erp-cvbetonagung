@@ -43,6 +43,11 @@ class SalesOrderItem extends Model
         return $this->hasMany(DeliveryOrderItem::class);
     }
 
+    public function productionWorkOrders(): HasMany
+    {
+        return $this->hasMany(ProductionWorkOrder::class, 'sales_order_item_id');
+    }
+
     protected function casts(): array
     {
         return [

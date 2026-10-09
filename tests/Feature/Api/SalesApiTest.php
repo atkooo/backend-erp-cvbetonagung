@@ -489,4 +489,146 @@ class SalesApiTest extends TestCase
             'subtotal' => 400000,
         ]);
     }
+
+    public function test_delivery_order_can_be_created_with_shipping_fee_and_updates_invoice(): void
+    {
+        $this->seed();
+
+        $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
+        $product = Product::query()->where('sku', 'PRC-0001')->firstOrFail();
+
+        $orderId = $this->postJson('/api/sales/sales-orders', [
+            'order_number' => 'SO-API-SHIP-FEE',
+            'customer_id' => $customer->id,
+            'order_date' => '2026-06-06',
+            'total' => 450000,
+            'status' => 'approved',
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson('/api/sales/sales-order-items', [
+            'sales_order_id' => $orderId,
+            'product_id' => $product->id,
+            'description' => 'Item delivery shipping fee',
+            'quantity' => 3,
+            'unit_price' => 150000,
+            'subtotal' => 450000,
+            'discount_amount' => 0,
+        ])->assertCreated();
+
+        $invoice = Invoice::query()->create([
+            'invoice_number' => 'INV-API-SHIP-FEE',
+            'sales_order_id' => $orderId,
+            'customer_id' => $customer->id,
+            'invoice_date' => '2026-06-06',
+            'due_date' => '2026-06-13',
+            'subtotal' => 450000,
+            'tax_amount' => 0,
+            'shipping_cost' => 0,
+            'total' => 450000,
+            'paid_amount' => 450000,
+            'status' => 'paid',
+        ]);
+
+        $response = $this->postJson("/api/sales/sales-orders/{$orderId}/deliver", [
+            'delivery_number' => 'DO-API-PAID-SHIP',
+            'delivery_date' => '2026-06-07',
+            'receiver_name' => 'Penerima Budi',
+            'shipping_type' => 'paid',
+            'shipping_cost' => 150000,
+            'shipping_payment_type' => 'customer_invoice',
+            'driver_name' => 'Pak Joko',
+            'vehicle_number' => 'B 1234 CD',
+            'notes' => 'Pengiriman berbayar ongkir',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.delivery_number', 'DO-API-PAID-SHIP')
+            ->assertJsonPath('data.shipping_type', 'paid')
+            ->assertJsonPath('data.shipping_cost', '150000.00')
+            ->assertJsonPath('data.shipping_payment_type', 'customer_invoice')
+            ->assertJsonPath('data.driver_name', 'Pak Joko')
+            ->assertJsonPath('data.vehicle_number', 'B 1234 CD');
+
+        $this->assertDatabaseHas('delivery_orders', [
+            'delivery_number' => 'DO-API-PAID-SHIP',
+            'shipping_type' => 'paid',
+            'shipping_cost' => 150000,
+            'shipping_payment_type' => 'customer_invoice',
+            'driver_name' => 'Pak Joko',
+            'vehicle_number' => 'B 1234 CD',
+        ]);
+
+        // Invoice should now have shipping_cost = 150000, total = 600000, status = partial (since paid was 450000)
+        $invoice->refresh();
+        $this->assertEquals(150000, (float) $invoice->shipping_cost);
+        $this->assertEquals(600000, (float) $invoice->total);
+        $this->assertEquals('partial', $invoice->status);
+    }
+
+    public function test_cancelling_delivery_order_reverses_invoice_shipping_fee(): void
+    {
+        $this->seed();
+
+        $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
+        $product = Product::query()->where('sku', 'PRC-0001')->firstOrFail();
+
+        $orderId = $this->postJson('/api/sales/sales-orders', [
+            'order_number' => 'SO-API-SHIP-CANCEL',
+            'customer_id' => $customer->id,
+            'order_date' => '2026-06-06',
+            'total' => 300000,
+            'status' => 'approved',
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson('/api/sales/sales-order-items', [
+            'sales_order_id' => $orderId,
+            'product_id' => $product->id,
+            'description' => 'Item delivery cancel test',
+            'quantity' => 2,
+            'unit_price' => 150000,
+            'subtotal' => 300000,
+            'discount_amount' => 0,
+        ])->assertCreated();
+
+        $invoice = Invoice::query()->create([
+            'invoice_number' => 'INV-API-SHIP-CANCEL',
+            'sales_order_id' => $orderId,
+            'customer_id' => $customer->id,
+            'invoice_date' => '2026-06-06',
+            'due_date' => '2026-06-13',
+            'subtotal' => 300000,
+            'tax_amount' => 0,
+            'shipping_cost' => 0,
+            'total' => 300000,
+            'paid_amount' => 300000,
+            'status' => 'paid',
+        ]);
+
+        $res = $this->postJson("/api/sales/sales-orders/{$orderId}/deliver", [
+            'delivery_number' => 'DO-API-CANCEL-SHIP',
+            'delivery_date' => '2026-06-07',
+            'shipping_type' => 'paid',
+            'shipping_cost' => 50000,
+            'shipping_payment_type' => 'customer_invoice',
+            'driver_name' => 'Sopir Budi',
+            'vehicle_number' => 'L 9999 AA',
+        ]);
+        $doId = $res->assertCreated()->json('data.id');
+
+        $invoice->refresh();
+        $this->assertEquals(50000, (float) $invoice->shipping_cost);
+        $this->assertEquals(350000, (float) $invoice->total);
+
+        // Cancel Delivery Order
+        $this->postJson("/api/sales/delivery-orders/{$doId}/cancel", [
+            'reason' => 'Salah alamat pengiriman',
+        ])->assertOk();
+
+        // Invoice shipping cost and total should be reverted
+        $invoice->refresh();
+        $this->assertEquals(0, (float) $invoice->shipping_cost);
+        $this->assertEquals(300000, (float) $invoice->total);
+        $this->assertEquals('paid', $invoice->status);
+    }
 }

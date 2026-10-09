@@ -20,6 +20,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'received_at',
     'receiver_name',
     'status',
+    'shipping_type',
+    'shipping_cost',
+    'shipping_payment_type',
+    'driver_name',
+    'vehicle_number',
     'notes',
     'cancelled_by',
     'cancelled_at',
@@ -60,6 +65,7 @@ class DeliveryOrder extends Model
         return [
             'delivery_date' => 'date',
             'received_at' => 'datetime',
+            'shipping_cost' => 'decimal:2',
         ];
     }
 }

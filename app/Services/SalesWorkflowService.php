@@ -290,6 +290,12 @@ class SalesWorkflowService
                 }
             }
 
+            $shippingType = $attributes['shipping_type'] ?? 'free';
+            $shippingCost = $shippingType === 'paid' ? max(0, (float) ($attributes['shipping_cost'] ?? 0)) : 0.0;
+            $shippingPaymentType = $shippingType === 'paid' ? ($attributes['shipping_payment_type'] ?? 'customer_invoice') : 'company';
+            $driverName = $attributes['driver_name'] ?? null;
+            $vehicleNumber = $attributes['vehicle_number'] ?? null;
+
             $deliveryOrder = DeliveryOrder::query()->create([
                 'delivery_number' => $attributes['delivery_number'] ?? null,
                 'sales_order_id' => $salesOrder->id,
@@ -297,6 +303,11 @@ class SalesWorkflowService
                 'delivery_date' => $attributes['delivery_date'] ?? null,
                 'receiver_name' => $attributes['receiver_name'] ?? null,
                 'status' => $targetStatus,
+                'shipping_type' => $shippingType,
+                'shipping_cost' => $shippingCost,
+                'shipping_payment_type' => $shippingPaymentType,
+                'driver_name' => $driverName,
+                'vehicle_number' => $vehicleNumber,
                 'notes' => $attributes['notes'] ?? $salesOrder->notes,
             ]);
 
@@ -307,6 +318,22 @@ class SalesWorkflowService
                     'product_id' => $item->product_id,
                     'quantity' => $item->piece_count ?? $item->quantity,
                 ]);
+            }
+
+            if ($shippingPaymentType === 'customer_invoice' && $shippingCost > 0 && $invoice) {
+                $invoice->shipping_cost = (float) $invoice->shipping_cost + $shippingCost;
+                $globalDiscount = (float) ($salesOrder->global_discount_amount ?? 0);
+                $invoice->total = max(0, (float) $invoice->subtotal + (float) $invoice->tax_amount + (float) $invoice->shipping_cost - $globalDiscount);
+
+                $paidAmount = (float) $invoice->paid_amount;
+                if ($paidAmount >= (float) $invoice->total) {
+                    $invoice->status = 'paid';
+                } elseif ($paidAmount > 0) {
+                    $invoice->status = 'partial';
+                } else {
+                    $invoice->status = 'unpaid';
+                }
+                $invoice->save();
             }
 
             return $deliveryOrder;

@@ -190,6 +190,19 @@ class CancellationService
                 $this->reverseDeliveryOrderStock($do, $userId, $reason);
             }
 
+            // Kembalikan ongkir pada invoice jika sebelumnya ditagihkan ke invoice
+            if ($do->shipping_payment_type === 'customer_invoice' && (float) $do->shipping_cost > 0) {
+                $invoice = $do->salesOrder?->invoices()->where('status', '!=', 'cancelled')->first();
+                if ($invoice) {
+                    $newShippingCost = max(0, (float) $invoice->shipping_cost - (float) $do->shipping_cost);
+                    $invoice->shipping_cost = $newShippingCost;
+                    $globalDiscount = (float) ($do->salesOrder->global_discount_amount ?? 0);
+                    $invoice->total = max(0, (float) $invoice->subtotal + (float) $invoice->tax_amount + $newShippingCost - $globalDiscount);
+                    $invoice->status = $this->resolveInvoiceStatus((float) $invoice->paid_amount, (float) $invoice->total);
+                    $invoice->save();
+                }
+            }
+
             $do->forceFill([
                 'status' => 'cancelled',
                 'cancelled_by' => $userId,

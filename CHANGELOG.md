@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Fitur Ongkos Kirim (Gratis & Berbayar) pada Delivery Order (Surat Jalan)**:
+  - Migrasi `2026_10_09_150000_add_shipping_fields_to_delivery_orders_and_invoices_tables.php` menambahkan kolom `shipping_type`, `shipping_cost`, `shipping_payment_type`, `driver_name`, dan `vehicle_number` pada tabel `delivery_orders`, serta `shipping_cost` pada tabel `invoices`.
+  - Dukungan jenis ongkos kirim: `Gratis Ongkir` (Rp 0 / ditanggung perusahaan) dan `Berbayar` (dengan nominal rupiah).
+  - Pilihan metode beban ongkir: `customer_invoice` (otomatis ditagihkan ke invoice pelanggan), `cod` (bayar di tempat / tunai ke supir), dan `company` (ditanggung perusahaan).
+  - `SalesWorkflowService::createDeliveryOrder`: Jika DO berbayar dan ditagihkan ke invoice pelanggan, otomatis mengakumulasikan biaya ongkir ke `shipping_cost` invoice terkait, memperbarui `total` tagihan invoice, dan menyesuaikan status invoice jika diperlukan.
+  - `CancellationService::cancelDeliveryOrder`: Jika DO dibatalkan, ongkos kirim yang sebelumnya dibebankan ke invoice pelanggan otomatis direverse/dikurangkan kembali dan status invoice diseimbangkan.
+  - FormRequest `CreateDeliveryOrderRequest` diperbarui dengan validasi field ongkir, supir, dan nomor kendaraan.
+  - Feature test: `test_delivery_order_can_be_created_with_shipping_fee_and_updates_invoice` dan `test_cancelling_delivery_order_reverses_invoice_shipping_fee` pada `SalesApiTest.php`.
 - **Fitur Edit Penawaran (Quotation) Berstatus Draft**:
   - `SalesWorkflowService::updateQuotation`: Menambahkan validasi guard agar dokumen dan item hanya dapat diubah ketika quotation berstatus `draft` / `sent`, serta mencegah modifikasi jika quotation sudah terikat ke Sales Order.
   - Penambahan form editing pada antarmuka frontend (`SalesView.tsx`) dengan dukungan penuh untuk menambah baris item, menghapus baris item, mengganti produk, mengubah kuantitas, harga, diskon, catatan, relasi pelanggan, serta tanggal penawaran.

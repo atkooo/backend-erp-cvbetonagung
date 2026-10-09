@@ -22,6 +22,11 @@ class CreateDeliveryOrderRequest extends FormRequest
             'delivery_date' => ['nullable', 'date'],
             'receiver_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'status' => ['sometimes', Rule::in(['ready_to_load', 'shipped', 'received', 'cancelled'])],
+            'shipping_type' => ['sometimes', 'nullable', Rule::in(['free', 'paid'])],
+            'shipping_cost' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'shipping_payment_type' => ['sometimes', 'nullable', Rule::in(['company', 'customer_invoice', 'cod'])],
+            'driver_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'vehicle_number' => ['sometimes', 'nullable', 'string', 'max:50'],
             'notes' => ['sometimes', 'nullable', 'string'],
         ];
     }

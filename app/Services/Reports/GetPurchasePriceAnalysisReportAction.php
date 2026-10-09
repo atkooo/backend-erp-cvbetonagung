@@ -50,6 +50,7 @@ class GetPurchasePriceAnalysisReportAction
             $itemQuery = PurchaseOrderItem::query()
                 ->where('product_id', $p->id)
                 ->whereHas('purchaseOrder', function (Builder $poq) use ($filters) {
+                    $poq->active();
                     if (! empty($filters['date_from'])) {
                         $poq->whereDate('po_date', '>=', $filters['date_from']);
                     }

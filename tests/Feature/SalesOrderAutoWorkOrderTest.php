@@ -193,4 +193,3 @@ class SalesOrderAutoWorkOrderTest extends TestCase
         $this->assertNotEquals($wo1->id, $wo2->id);
     }
 }
-

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,6 +39,11 @@ class StockOpnameSession extends Model
     public function items(): HasMany
     {
         return $this->hasMany(StockOpnameItem::class, 'session_id');
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereNotIn('status', ['cancelled', 'dibatalkan', 'Cancelled', 'Dibatalkan']);
     }
 
     protected function casts(): array

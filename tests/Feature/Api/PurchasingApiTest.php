@@ -284,4 +284,3 @@ class PurchasingApiTest extends TestCase
         $response->assertCreated();
     }
 }
-

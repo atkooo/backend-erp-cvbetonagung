@@ -40,6 +40,7 @@ class GetApAgingReportAction
         $asOfDate = Carbon::parse($asOfDateStr)->endOfDay();
 
         $query = SupplierPayable::query()
+            ->active()
             ->with(['supplier', 'purchaseOrder'])
             ->where('status', '!=', 'paid')
             ->where('created_at', '<=', $asOfDate);

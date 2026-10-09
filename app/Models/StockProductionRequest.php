@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\Cancellable;
 use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -25,7 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class StockProductionRequest extends Model
 {
-    use GeneratesDocumentNumber, HasUuids;
+    use Cancellable, GeneratesDocumentNumber, HasUuids;
 
     public function documentNumberPrefix(): string
     {

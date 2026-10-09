@@ -104,8 +104,10 @@ abstract class ApiResourceController extends Controller
 
         $query = $modelClass::query()->with($config['relations'] ?? []);
 
-        if (in_array(Cancellable::class, class_uses_recursive($modelClass), true)) {
-            if (! request()->has('status')) {
+        if (! request()->boolean('include_cancelled')) {
+            if (method_exists($modelClass, 'scopeActive')) {
+                $query->active();
+            } elseif (in_array(Cancellable::class, class_uses_recursive($modelClass), true)) {
                 $query->active();
             }
         }
@@ -120,7 +122,18 @@ abstract class ApiResourceController extends Controller
     {
         foreach ($this->filterableColumns() as $column) {
             if ($request->filled($column)) {
-                $query->where($column, $request->string($column)->value());
+                $val = $request->string($column)->value();
+                if ($column === 'status' || $column === 'stage') {
+                    if (strtolower($val) === 'all') {
+                        continue;
+                    }
+                    if (in_array(strtolower($val), ['cancelled', 'dibatalkan'], true) && ! $request->boolean('include_cancelled')) {
+                        $query->whereRaw('1 = 0');
+
+                        continue;
+                    }
+                }
+                $query->where($column, $val);
             }
         }
 

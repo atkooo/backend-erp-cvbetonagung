@@ -53,7 +53,7 @@ class GetSupplierPurchasesReportAction
         $grandOutstandingAp = 0.0;
 
         foreach ($suppliers as $supplier) {
-            $poQuery = $supplier->purchaseOrders();
+            $poQuery = $supplier->purchaseOrders()->active();
 
             if (! empty($filters['date_from'])) {
                 $poQuery->whereDate('po_date', '>=', $filters['date_from']);
@@ -63,7 +63,7 @@ class GetSupplierPurchasesReportAction
                 $poQuery->whereDate('po_date', '<=', $filters['date_to']);
             }
 
-            $pos = $poQuery->with('supplierPayables')->get();
+            $pos = $poQuery->with(['supplierPayables' => fn ($q) => $q->active()])->get();
 
             $poCount = $pos->count();
             if ($poCount === 0 && (! empty($filters['date_from']) || ! empty($filters['date_to']))) {

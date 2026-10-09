@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Sinkronisasi Zona Waktu Dinamis Sistem (WIB/WITA/WIT) dari Settings**:
+  - Konfigurasi `config/app.php` dan `.env` disesuaikan agar mendukung `APP_TIMEZONE=Asia/Jakarta` secara dinamis.
+  - Penambahan bootstrap dinamis pada `AppServiceProvider::boot()` dan `SettingsController::store()` untuk membaca preferensi `company.timezone` langsung dari tabel `settings` (misal `Asia/Jakarta`, `Asia/Makassar`, `Asia/Jayapura`).
+  - Pencatatan timestamp MySQL (`created_at`, `updated_at`, dan `now()`) kini otomatis mengikuti zona waktu aktif yang dipilih pengguna pada menu Pengaturan (misal 15:xx:xx WIB).
+- **Penyembunyian Dokumen Dibatalkan dari Frontend (Backend & Database Only)**:
+  - Pembatasan default pada seluruh model transaksi & operasional (`Quotation`, `SalesOrder`, `DeliveryOrder`, `Invoice`, `Payment`, `PurchaseRequest`, `Rfq`, `PurchaseOrder`, `GoodsReceiptNote`, `SupplierPayable`, `StockProductionRequest`, `ProductionWorkOrder`, `Project`, `StockOpnameSession`) menggunakan scope `active()` agar data dengan status `cancelled` / `dibatalkan` tidak lagi dikirimkan ke endpoint API umum ataupun muncul di frontend.
+  - Parameter `include_cancelled=true` disediakan khusus jika endpoint internal/audit backend membutuhkan pengambilan data yang dibatalkan.
+  - Filter analitik, dashboard, dan laporan eksekutif (sales, AR/AP aging, supplier purchases, purchase price analysis) diperbarui agar otomatis mengabaikan dokumen yang dibatalkan.
+  - Frontend (Sales, Purchase, RFQ, PR, WO, DO, Invoice, Payment, AR/AP Ledger, Project, dan POS) diperbarui untuk memfilter transaksi berstatus dibatalkan dari daftar tabel, perhitungan ringkasan saldo/outstanding, dan opsi status aktif.
+  - Sesi Stock Opname (STO) berstatus `draft` kini dapat dibatalkan secara langsung melalui tombol "Batalkan Sesi", dengan konfirmasi dialog dan pembersihan otomatis dari daftar aktif frontend.
 - **Workflow Work Order Berbasis Dokumen Referensi & Permintaan Produksi Stok (SPR)**:
   - Penambahan model & migrasi `StockProductionRequest` dan `StockProductionRequestItem` sebagai dokumen induk Make to Stock (MTS).
   - Penambahan kolom relasi `stock_production_request_id` pada `production_work_orders`.
@@ -33,6 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Feature test: `RestockPoGenerationTest`.
 
 ### Fixed
+- Fixed error `totalPages is not defined` pada `ProductionWorkOrderView.tsx` dengan menghapus blok pagination tanpa state yang menyebabkan crash saat membuka modul Work Order.
+- Fixed auto-generate Work Order yang melewatkan baris item kedua jika menggunakan master produk yang sama dengan ukuran berbeda (seperti pada SO2026090013):
+  - Penambahan kolom relasi `sales_order_item_id` pada tabel `production_work_orders`.
+  - Pengecekan idempotensi kini berbasis baris item pesanan (`sales_order_item_id`) dengan fallback untuk data lama.
+  - Penambahan detail spesifikasi ukuran (panjang potongan & jumlah fisik, misal `P: 3.3m, 2 btg`) pada `source_label` Work Order.
+  - Penambahan relasi `salesOrderItem` pada `ProductionWorkOrder` dan `productionWorkOrders` pada `SalesOrderItem`.
 - Fixed `Unknown API resource` (404) error on penerimaan barang / Goods Receipt Note (GRN) by adding `goods-receipts` and `goods-receipt-items` resource mapping and handling in `PurchasingController`.
 
 ## [1.0.0] - 2026-07-31

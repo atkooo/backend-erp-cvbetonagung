@@ -10,6 +10,7 @@ use App\Models\GoodsReceiptNoteItem;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\ProductionWorkOrder;
 use App\Models\ProductStock;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
@@ -699,5 +700,141 @@ class CancellationTest extends TestCase
             'id' => $po->id,
             'status' => 'ordered',
         ]);
+    }
+
+    public function test_cancelled_purchase_orders_excluded_from_index(): void
+    {
+        $supplier = Supplier::query()->first();
+
+        $activePo = PurchaseOrder::factory()->create([
+            'supplier_id' => $supplier->id,
+            'status' => 'ordered',
+        ]);
+
+        $cancelledPo = PurchaseOrder::factory()->create([
+            'supplier_id' => $supplier->id,
+            'status' => 'cancelled',
+            'cancelled_by' => $this->admin->id,
+            'cancelled_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->getJson('/api/purchasing/purchase-orders')
+            ->assertOk();
+
+        $ids = collect($response->json('data'))->pluck('id')->toArray();
+        $this->assertContains($activePo->id, $ids);
+        $this->assertNotContains($cancelledPo->id, $ids);
+    }
+
+    public function test_cancelled_rfqs_excluded_from_index(): void
+    {
+        $supplier = Supplier::query()->first();
+
+        $activeRfq = Rfq::factory()->create([
+            'supplier_id' => $supplier->id,
+            'status' => 'draft',
+        ]);
+
+        $cancelledRfq = Rfq::factory()->create([
+            'supplier_id' => $supplier->id,
+            'status' => 'cancelled',
+            'cancelled_by' => $this->admin->id,
+            'cancelled_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->getJson('/api/purchasing/rfqs')
+            ->assertOk();
+
+        $ids = collect($response->json('data'))->pluck('id')->toArray();
+        $this->assertContains($activeRfq->id, $ids);
+        $this->assertNotContains($cancelledRfq->id, $ids);
+    }
+
+    public function test_cancelled_invoices_excluded_from_index(): void
+    {
+        $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
+
+        $activeInvoice = Invoice::factory()->create([
+            'customer_id' => $customer->id,
+            'status' => 'unpaid',
+        ]);
+
+        $cancelledInvoice = Invoice::factory()->create([
+            'customer_id' => $customer->id,
+            'status' => 'cancelled',
+            'cancelled_by' => $this->admin->id,
+            'cancelled_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->getJson('/api/finance/invoices')
+            ->assertOk();
+
+        $ids = collect($response->json('data'))->pluck('id')->toArray();
+        $this->assertContains($activeInvoice->id, $ids);
+        $this->assertNotContains($cancelledInvoice->id, $ids);
+    }
+
+    public function test_cancelled_delivery_orders_excluded_from_index(): void
+    {
+        $customer = Customer::query()->where('code', 'CUST-UMUM')->firstOrFail();
+
+        $activeDo = DeliveryOrder::factory()->create([
+            'customer_id' => $customer->id,
+            'status' => 'ready_to_load',
+        ]);
+
+        $cancelledDo = DeliveryOrder::factory()->create([
+            'customer_id' => $customer->id,
+            'status' => 'cancelled',
+            'cancelled_by' => $this->admin->id,
+            'cancelled_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->getJson('/api/sales/delivery-orders')
+            ->assertOk();
+
+        $ids = collect($response->json('data'))->pluck('id')->toArray();
+        $this->assertContains($activeDo->id, $ids);
+        $this->assertNotContains($cancelledDo->id, $ids);
+    }
+
+    public function test_cancelled_work_orders_excluded_from_index(): void
+    {
+        $product = Product::query()->firstOrFail();
+
+        $activeWo = ProductionWorkOrder::create([
+            'work_order_number' => 'WO-TEST-ACTIVE',
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'target_qty' => 10,
+            'completed_qty' => 0,
+            'stage' => 'Draft',
+            'created_by' => $this->admin->id,
+        ]);
+
+        $cancelledWo = ProductionWorkOrder::create([
+            'work_order_number' => 'WO-TEST-CANCELLED',
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'target_qty' => 10,
+            'completed_qty' => 0,
+            'stage' => 'cancelled',
+            'created_by' => $this->admin->id,
+            'cancelled_by' => $this->admin->id,
+            'cancelled_at' => now(),
+            'cancel_reason' => 'Batal produksi',
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->getJson('/api/production/work-orders')
+            ->assertOk();
+
+        $ids = collect($response->json('data'))->pluck('id')->toArray();
+        $this->assertContains($activeWo->id, $ids);
+        $this->assertNotContains($cancelledWo->id, $ids);
     }
 }

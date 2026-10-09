@@ -23,8 +23,17 @@ class StockProductionRequestController extends Controller
             ->with(['items.product', 'storageLocation', 'requestedBy', 'approvedBy', 'workOrders'])
             ->orderBy('created_at', 'desc');
 
+        if (! $request->boolean('include_cancelled')) {
+            $query->active();
+        }
+
         if ($request->filled('status')) {
-            $query->where('status', $request->query('status'));
+            $status = (string) $request->query('status');
+            if (in_array(strtolower($status), ['cancelled', 'dibatalkan'], true) && ! $request->boolean('include_cancelled')) {
+                $query->whereRaw('1 = 0');
+            } elseif (strtolower($status) !== 'all') {
+                $query->where('status', $status);
+            }
         }
 
         if ($request->filled('search')) {

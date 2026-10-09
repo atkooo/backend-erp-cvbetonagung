@@ -24,7 +24,7 @@ trait Cancellable
      */
     public function scopeActive(Builder $query): Builder
     {
-        return $query->where('status', '!=', 'cancelled');
+        return $query->whereNotIn('status', ['cancelled', 'dibatalkan', 'Cancelled', 'Dibatalkan']);
     }
 
     /**
@@ -32,14 +32,14 @@ trait Cancellable
      */
     public function scopeCancelled(Builder $query): Builder
     {
-        return $query->where('status', 'cancelled');
+        return $query->whereIn('status', ['cancelled', 'dibatalkan', 'Cancelled', 'Dibatalkan']);
     }
 
     // ── State helpers ────────────────────────────────────────
 
     public function isCancelled(): bool
     {
-        return $this->status === 'cancelled';
+        return in_array(strtolower((string) $this->status), ['cancelled', 'dibatalkan'], true);
     }
 
     // ── Relationship ─────────────────────────────────────────

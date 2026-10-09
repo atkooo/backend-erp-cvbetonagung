@@ -766,18 +766,18 @@ class SalesWorkflowService
 
             $specParts = [];
             if ($item->length && (float) $item->length > 0) {
-                $specParts[] = 'P: ' . (float) $item->length . 'm';
+                $specParts[] = 'P: '.(float) $item->length.'m';
             }
             if ($item->specification) {
                 $specParts[] = $item->specification;
             }
             if ($item->piece_count && (float) $item->piece_count > 0) {
-                $specParts[] = (float) $item->piece_count . ' btg';
+                $specParts[] = (float) $item->piece_count.' btg';
             }
 
             $sourceLabel = "SO: {$salesOrder->order_number} - {$customerName}";
             if (! empty($specParts)) {
-                $sourceLabel .= ' (' . implode(', ', $specParts) . ')';
+                $sourceLabel .= ' ('.implode(', ', $specParts).')';
             }
 
             $wo = ProductionWorkOrder::query()->create([

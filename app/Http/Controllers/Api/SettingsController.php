@@ -27,6 +27,11 @@ class SettingsController extends Controller
             );
         }
 
+        if (isset($data['company.timezone']) && in_array($data['company.timezone'], timezone_identifiers_list(), true)) {
+            config(['app.timezone' => $data['company.timezone']]);
+            date_default_timezone_set($data['company.timezone']);
+        }
+
         $settings = Setting::all()->pluck('value', 'key');
 
         return (new JsonResource($settings))->response();

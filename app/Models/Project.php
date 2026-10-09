@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Traits\GeneratesDocumentNumber;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -113,6 +114,21 @@ class Project extends Model
     public function tasks(): HasMany
     {
         return $this->hasMany(ProjectTask::class)->orderBy('sequence');
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereNotIn('status', ['cancelled', 'dibatalkan', 'Cancelled', 'Dibatalkan']);
+    }
+
+    public function scopeCancelled(Builder $query): Builder
+    {
+        return $query->whereIn('status', ['cancelled', 'dibatalkan', 'Cancelled', 'Dibatalkan']);
+    }
+
+    public function isCancelled(): bool
+    {
+        return in_array(strtolower((string) $this->status), ['cancelled', 'dibatalkan'], true);
     }
 
     protected function casts(): array

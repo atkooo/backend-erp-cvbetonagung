@@ -33,6 +33,7 @@ class ExecSalesReportController extends Controller
                 COALESCE(SUM(paid_amount), 0) as total_paid,
                 COALESCE(SUM(total - paid_amount), 0) as outstanding
             ")
+            ->whereNotIn('status', ['cancelled', 'dibatalkan'])
             ->whereBetween('invoice_date', [$dateFrom, $dateTo])
             ->groupByRaw("DATE_FORMAT(invoice_date, '{$groupFormat}')")
             ->orderBy('period_label')
@@ -45,6 +46,7 @@ class ExecSalesReportController extends Controller
                 COALESCE(SUM(paid_amount), 0) as total_paid,
                 COALESCE(SUM(total - paid_amount), 0) as total_outstanding
             ')
+            ->whereNotIn('status', ['cancelled', 'dibatalkan'])
             ->whereBetween('invoice_date', [$dateFrom, $dateTo])
             ->first();
 
@@ -66,10 +68,12 @@ class ExecSalesReportController extends Controller
         $dateTo = $request->input('date_to', now()->toDateString());
 
         $revenue = (float) DB::table('invoices')
+            ->whereNotIn('status', ['cancelled', 'dibatalkan'])
             ->whereBetween('invoice_date', [$dateFrom, $dateTo])
             ->sum('total');
 
         $cogs = (float) DB::table('purchase_orders')
+            ->whereNotIn('status', ['cancelled', 'dibatalkan'])
             ->whereIn('status', ['received', 'completed', 'partial'])
             ->whereBetween('po_date', [$dateFrom, $dateTo])
             ->sum('total');
@@ -88,6 +92,7 @@ class ExecSalesReportController extends Controller
                 COALESCE(SUM(soi.subtotal), 0) as total_revenue,
                 COALESCE(SUM(soi.quantity * p.cost_price), 0) as total_cogs
             ")
+            ->whereNotIn('so.status', ['cancelled', 'dibatalkan'])
             ->whereBetween('so.order_date', [$dateFrom, $dateTo])
             ->groupBy('pc.id', 'pc.name')
             ->orderByRaw('SUM(soi.subtotal) DESC')
@@ -135,6 +140,7 @@ class ExecSalesReportController extends Controller
                 DATEDIFF(?, i.due_date) as days_overdue
             ', [$asOfDate])
             ->where('i.status', '!=', 'paid')
+            ->whereNotIn('i.status', ['cancelled', 'dibatalkan'])
             ->havingRaw('outstanding > 0')
             ->orderByRaw('days_overdue DESC')
             ->get();
@@ -196,6 +202,7 @@ class ExecSalesReportController extends Controller
                 SUM(soi.quantity) as total_qty,
                 SUM(soi.subtotal) as total_revenue
             ")
+            ->whereNotIn('so.status', ['cancelled', 'dibatalkan'])
             ->whereBetween('so.order_date', [$dateFrom, $dateTo])
             ->groupBy('p.id', 'p.sku', 'p.name', 'pc.name', 'u.name')
             ->orderByRaw('SUM(soi.subtotal) DESC')

@@ -33,7 +33,9 @@ return new class extends Migration
         if (! Schema::hasTable('stock_production_request_items')) {
             Schema::create('stock_production_request_items', function (Blueprint $table) {
                 $table->uuid('id')->primary();
-                $table->foreignUuid('stock_production_request_id')->constrained('stock_production_requests')->cascadeOnDelete();
+                $table->foreignUuid('stock_production_request_id')
+                    ->constrained('stock_production_requests', indexName: 'spri_spr_id_foreign')
+                    ->cascadeOnDelete();
                 $table->foreignUuid('product_id')->constrained('products')->restrictOnDelete();
                 $table->decimal('target_qty', 18, 2);
                 $table->decimal('completed_qty', 18, 2)->default(0);
@@ -47,7 +49,7 @@ return new class extends Migration
                 $table->foreignUuid('stock_production_request_id')
                     ->nullable()
                     ->after('project_id')
-                    ->constrained('stock_production_requests')
+                    ->constrained('stock_production_requests', indexName: 'pwo_spr_id_foreign')
                     ->nullOnDelete();
             });
         }
@@ -60,7 +62,7 @@ return new class extends Migration
     {
         if (Schema::hasTable('production_work_orders') && Schema::hasColumn('production_work_orders', 'stock_production_request_id')) {
             Schema::table('production_work_orders', function (Blueprint $table) {
-                $table->dropForeign(['stock_production_request_id']);
+                $table->dropForeign('pwo_spr_id_foreign');
                 $table->dropColumn('stock_production_request_id');
             });
         }

@@ -16,6 +16,7 @@ use App\Models\Warehouse;
 use App\Services\SalesWorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class SalesWorkflowServiceTest extends TestCase
@@ -149,6 +150,87 @@ class SalesWorkflowServiceTest extends TestCase
             'customer_id' => $this->customer->id,
             'status' => 'processing',
             'total' => 50000,
+        ]);
+    }
+
+    public function test_it_can_update_draft_quotation_items()
+    {
+        $quotation = $this->service->createQuotation([
+            'quotation_number' => 'QUO-EDIT-001',
+            'customer_id' => $this->customer->id,
+            'created_by' => $this->admin->id,
+            'quotation_date' => now()->toDateString(),
+            'status' => 'draft',
+            'items' => [
+                [
+                    'product_id' => $this->product->id,
+                    'quantity' => 2,
+                    'unit_price' => 50000,
+                ],
+            ],
+        ]);
+
+        $this->assertEquals(100000, $quotation->total);
+        $this->assertCount(1, $quotation->items);
+
+        $secondProduct = Product::forceCreate([
+            'sku' => 'PRC-0002',
+            'name' => 'Produk Test 2',
+            'type' => 'finished_good',
+            'selling_price' => 25000,
+        ]);
+
+        $updated = $this->service->updateQuotation($quotation->id, [
+            'notes' => 'Catatan revisi draft',
+            'items' => [
+                [
+                    'product_id' => $this->product->id,
+                    'quantity' => 3,
+                    'unit_price' => 50000,
+                ],
+                [
+                    'product_id' => $secondProduct->id,
+                    'quantity' => 2,
+                    'unit_price' => 25000,
+                ],
+            ],
+        ]);
+
+        $this->assertEquals('Catatan revisi draft', $updated->notes);
+        $this->assertCount(2, $updated->items);
+        $this->assertEquals(200000, $updated->total);
+    }
+
+    public function test_it_cannot_update_approved_quotation_items()
+    {
+        $quotation = $this->service->createQuotation([
+            'quotation_number' => 'QUO-EDIT-002',
+            'customer_id' => $this->customer->id,
+            'created_by' => $this->admin->id,
+            'quotation_date' => now()->toDateString(),
+            'status' => 'draft',
+            'items' => [
+                [
+                    'product_id' => $this->product->id,
+                    'quantity' => 1,
+                    'unit_price' => 50000,
+                ],
+            ],
+        ]);
+
+        $this->service->approveQuotation($quotation->id, []);
+
+        $this->expectException(HttpException::class);
+        $this->expectExceptionMessage('Hanya penawaran (quotation) dengan status draft yang dapat diubah.');
+
+        $this->service->updateQuotation($quotation->id, [
+            'items' => [
+                [
+                    'product_id' => $this->product->id,
+                    'quantity' => 5,
+                    'unit_price' => 50000,
+                ],
+            ],
         ]);
     }
 

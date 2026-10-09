@@ -153,6 +153,21 @@ class SalesWorkflowService
             $items = $attributes['items'] ?? null;
             unset($attributes['items']);
 
+            $isOnlyStatusChange = count($attributes) === 1 && array_key_exists('status', $attributes) && ! $hasItems;
+
+            if (! $isOnlyStatusChange) {
+                abort_if(
+                    ! in_array($quotation->status, ['draft', 'sent']),
+                    422,
+                    'Hanya penawaran (quotation) dengan status draft yang dapat diubah.'
+                );
+                abort_if(
+                    $quotation->salesOrders()->exists(),
+                    422,
+                    'Penawaran tidak dapat diubah karena sudah memiliki Sales Order.'
+                );
+            }
+
             $quotation->fill($attributes)->save();
 
             if ($hasItems && $items !== null) {

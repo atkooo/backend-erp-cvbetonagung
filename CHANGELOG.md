@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Fitur Edit Penawaran (Quotation) Berstatus Draft**:
+  - `SalesWorkflowService::updateQuotation`: Menambahkan validasi guard agar dokumen dan item hanya dapat diubah ketika quotation berstatus `draft` / `sent`, serta mencegah modifikasi jika quotation sudah terikat ke Sales Order.
+  - Penambahan form editing pada antarmuka frontend (`SalesView.tsx`) dengan dukungan penuh untuk menambah baris item, menghapus baris item, mengganti produk, mengubah kuantitas, harga, diskon, catatan, relasi pelanggan, serta tanggal penawaran.
+  - Automated test: `test_it_can_update_draft_quotation_items` dan `test_it_cannot_update_approved_quotation_items` pada `SalesWorkflowServiceTest.php`.
 - **Sinkronisasi Zona Waktu Dinamis Sistem (WIB/WITA/WIT) dari Settings**:
   - Konfigurasi `config/app.php` dan `.env` disesuaikan agar mendukung `APP_TIMEZONE=Asia/Jakarta` secara dinamis.
   - Penambahan bootstrap dinamis pada `AppServiceProvider::boot()` dan `SettingsController::store()` untuk membaca preferensi `company.timezone` langsung dari tabel `settings` (misal `Asia/Jakarta`, `Asia/Makassar`, `Asia/Jayapura`).

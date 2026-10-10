@@ -44,7 +44,8 @@ class StockProductionRequestController extends Controller
             });
         }
 
-        $requests = $query->paginate($request->integer('per_page', 20));
+        $perPage = max(1, min((int) $request->integer('per_page', 250), 500));
+        $requests = $query->paginate($perPage);
 
         return response()->json($requests);
     }

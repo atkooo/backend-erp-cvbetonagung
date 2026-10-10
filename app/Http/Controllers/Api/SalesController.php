@@ -158,6 +158,19 @@ class SalesController extends ApiResourceController
     public function generateWorkOrders(Request $request, string $id, SalesWorkflowService $service): JsonResponse
     {
         $salesOrder = SalesOrder::findOrFail($id);
+
+        if (in_array(strtolower((string) $salesOrder->status), ['draft'])) {
+            return response()->json([
+                'message' => 'Sales Order masih berstatus Draft. Setujui (Approve) Sales Order terlebih dahulu sebelum mengirim ke antrian Work Order.',
+            ], 422);
+        }
+
+        if (in_array(strtolower((string) $salesOrder->status), ['cancelled', 'dibatalkan'])) {
+            return response()->json([
+                'message' => 'Sales Order sudah dibatalkan.',
+            ], 422);
+        }
+
         $wos = $service->autoGenerateWorkOrdersForSalesOrder($salesOrder);
 
         if (empty($wos)) {

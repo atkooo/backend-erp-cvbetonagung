@@ -218,7 +218,7 @@ class IdentityController extends ApiResourceController
 
     private function indexRolePermissions(Request $request): JsonResponse
     {
-        $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
+        $perPage = max(1, min((int) $request->integer('per_page', 250), 500));
 
         $query = Role::query()->with('permissions');
 

@@ -23,7 +23,7 @@ abstract class ApiResourceController extends Controller
     protected function indexResource(Request $request, string $resource): JsonResponse
     {
         $config = $this->resourceConfig($resource);
-        $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
+        $perPage = max(1, min((int) $request->integer('per_page', 250), 500));
         [$sort, $direction] = $this->sortClause($request, $config);
 
         $query = $this->resourceQuery($config);

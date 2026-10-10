@@ -37,9 +37,9 @@ class SalesOrderAutoWorkOrderTest extends TestCase
         );
     }
 
-    public function test_sales_order_auto_creates_work_order_for_self_produced_product(): void
+    public function test_sales_order_in_draft_cannot_generate_work_orders_until_approved(): void
     {
-        // 1. Buat produk jadi (barang produksi sendiri)
+        // 1. Buat produk jadi
         $finishedGood = Product::create([
             'sku' => 'PRD-FG-001',
             'name' => 'Pagar Panel Beton 240x40x5',
@@ -50,7 +50,6 @@ class SalesOrderAutoWorkOrderTest extends TestCase
             'min_stock' => 50,
         ]);
 
-        // 2. Buat produk bahan baku (bukan produksi sendiri / beli ke supplier)
         $rawMaterial = Product::create([
             'sku' => 'PRD-RM-001',
             'name' => 'Semen Portland 50kg',
@@ -61,7 +60,7 @@ class SalesOrderAutoWorkOrderTest extends TestCase
             'min_stock' => 100,
         ]);
 
-        // 3. Buat Sales Order via API
+        // 2. Buat Sales Order (status awal draft)
         $response = $this->actingAs($this->user)->postJson('/api/sales/sales-orders', [
             'customer_id' => $this->customer->id,
             'order_date' => date('Y-m-d'),
@@ -83,25 +82,35 @@ class SalesOrderAutoWorkOrderTest extends TestCase
         $response->assertStatus(201);
         $soId = $response->json('data.id');
 
-        // 4. Periksa bahwa Work Order otomatis terbentuk HANYA untuk barang produksi sendiri
+        // 3. Saat masih Draft, Work Order BELUM boleh dibuat
+        $this->assertEquals(0, ProductionWorkOrder::where('sales_order_id', $soId)->count());
+
+        // 4. Trigger manual saat draft harus ditolak dengan status 422
+        $manualRes = $this->actingAs($this->user)->postJson("/api/sales/sales-orders/{$soId}/generate-work-orders");
+        $manualRes->assertStatus(422);
+        $this->assertStringContainsString('Draft', (string) $manualRes->json('message'));
+
+        // 5. Setelah diapprove, barulah Work Order terbentuk
+        $approveRes = $this->actingAs($this->user)->postJson("/api/sales/sales-orders/{$soId}/approve");
+        $approveRes->assertOk();
+
         $wos = ProductionWorkOrder::where('sales_order_id', $soId)->get();
-
         $this->assertCount(1, $wos);
-        $wo = $wos->first();
 
+        $wo = $wos->first();
         $this->assertEquals($finishedGood->id, $wo->product_id);
         $this->assertEquals(150, (float) $wo->target_qty);
         $this->assertEquals('Draft', $wo->stage);
         $this->assertEquals(0, $wo->progress);
         $this->assertStringContainsString($this->customer->name, $wo->source_label);
 
-        // 5. Periksa bahwa 4 task produksi otomatis ter-generate dalam status 'Pending'
+        // 6. Pastikan 4 task produksi otomatis ter-generate dalam status 'Pending'
         $this->assertCount(4, $wo->tasks);
         foreach ($wo->tasks as $task) {
             $this->assertEquals('Pending', $task->status);
         }
 
-        // 6. Pastikan produk bahan mentah TIDAK dibuatkan Work Order
+        // 7. Pastikan produk bahan baku TIDAK dibuatkan Work Order
         $this->assertFalse(ProductionWorkOrder::where('sales_order_id', $soId)->where('product_id', $rawMaterial->id)->exists());
     }
 
@@ -130,6 +139,13 @@ class SalesOrderAutoWorkOrderTest extends TestCase
             'unit_price' => 150000,
             'subtotal' => 300000,
         ]);
+
+        // Saat status draft, generate manual ditolak
+        $draftRes = $this->actingAs($this->user)->postJson("/api/sales/sales-orders/{$so->id}/generate-work-orders");
+        $draftRes->assertStatus(422);
+
+        // Set status ke approved
+        $so->update(['status' => 'approved']);
 
         // Trigger manual pertama kali
         $res1 = $this->actingAs($this->user)->postJson("/api/sales/sales-orders/{$so->id}/generate-work-orders");
@@ -178,6 +194,13 @@ class SalesOrderAutoWorkOrderTest extends TestCase
 
         $response->assertStatus(201);
         $soId = $response->json('data.id');
+
+        // Belum di-approve, WO belum ada
+        $this->assertEquals(0, ProductionWorkOrder::where('sales_order_id', $soId)->count());
+
+        // Approve SO
+        $approveRes = $this->actingAs($this->user)->postJson("/api/sales/sales-orders/{$soId}/approve");
+        $approveRes->assertOk();
 
         $wos = ProductionWorkOrder::where('sales_order_id', $soId)->get();
 
@@ -241,6 +264,12 @@ class SalesOrderAutoWorkOrderTest extends TestCase
 
         $response->assertStatus(201);
         $soId = $response->json('data.id');
+
+        // Belum di-approve -> WO belum ada
+        $this->assertEquals(0, ProductionWorkOrder::where('sales_order_id', $soId)->count());
+
+        // Approve SO
+        $this->actingAs($this->user)->postJson("/api/sales/sales-orders/{$soId}/approve")->assertOk();
 
         // 4. Pastikan Work Order HANYA terbentuk untuk produk 'manufacture'
         $wos = ProductionWorkOrder::where('sales_order_id', $soId)->get();

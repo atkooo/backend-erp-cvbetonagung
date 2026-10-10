@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Penyesuaian Batas Pagination Global & Work Order (Menghilangkan Batasan 15 Data)**:
+  - `ApiResourceController`, `StockProductionRequestController`, `IdentityController`: Nilai fallback default `per_page` diubah dari 15/20 menjadi **250 records** (dengan batas maksimal 500) pada seluruh endpoint resource ERP (Work Orders, Purchase Orders, Projects, Invoices, Delivery Orders, Stock Requests, BOMs, Roles, dsb) sehingga data tidak lagi terpotong 15 item jika client tidak mengirimkan parameter pagination.
+  - `productionApi` (`api.ts`): Parameter `per_page=250` dan `-created_at` ditambahkan pada `getWorkOrders`, `getBoms`, dan `getStockProductionRequests`.
+  - `purchasingApi`, `projectsApi`, `financeApi`, `supportApi`: Menambahkan query parameter default `per_page=250` dan sort `-created_at` agar seluruh modul transaksi dan master data konsisten mengambil hingga 250 records.
+  - Frontend [ProductionWorkOrderView.tsx](file:///d:/Okta/Project/2025-ALURIN-system/2026-ALURIN-System-ERP/frontend/src/components/ProductionWorkOrderView.tsx): Menambahkan kontrol navigasi pagination pada panel daftar grup referensi Work Order di sidebar kiri dengan pemilih baris per halaman (5, 10, 20, 50 grup) dan tombol Previous / Next.
+- **Pagination Lengkap pada Daftar Sales Order & Delivery Order**:
+  - `ApiResourceController`: Batas maksimal `per_page` dinaikkan hingga 500 records agar pengambilan data koleksi skala besar tidak terpotong.
+  - `salesApi` (`api.ts`): Parameter `per_page=250` dan sorting default `-created_at` diterapkan pada `getSalesOrders`, `getDeliveryOrders`, dan `getQuotations`.
+  - Frontend [SalesView.tsx](file:///d:/Okta/Project/2025-ALURIN-system/2026-ALURIN-System-ERP/frontend/src/components/SalesView.tsx): Navigasi pagination kini selalu tampil saat dokumen tersedia, dilengkapi pemilih jumlah data per halaman (10, 15, 25, 50, 100), tombol First, Prev, Next, Last, serta indikator nomor halaman dan total dokumen.
+  - Frontend [DeliveryOrdersView.tsx](file:///d:/Okta/Project/2025-ALURIN-system/2026-ALURIN-System-ERP/frontend/src/components/DeliveryOrdersView.tsx): Menambahkan kontrol pagination tabel surat jalan dengan pemotong list `paginatedOrders`, pemilih jumlah data per halaman (10, 15, 25, 50, 100), informasi rentang baris, dan tombol navigasi halaman.
+- **Proteksi Pengiriman Antrian Work Order (WO) dari Sales Order Berstatus Draft**:
+  - `SalesWorkflowService::createSalesOrder`: Otomasi pembuatan Work Order tidak lagi dieksekusi saat Sales Order masih berstatus `draft`. Work order hanya dibuat otomatis setelah Sales Order disetujui (`approved`).
+  - `SalesWorkflowService::autoGenerateWorkOrdersForSalesOrder`: Ditambahkan guard klausul yang menolak pembuatan Work Order jika status Sales Order adalah `draft` atau `cancelled`.
+  - `SalesController::generateWorkOrders`: Endpoint manual trigger `POST /api/sales/sales-orders/{id}/generate-work-orders` kini mengembalikan status HTTP 422 jika Sales Order masih berstatus `draft`, mewajibkan persetujuan (approval) terlebih dahulu sebelum dapat dikirim ke antrian produksi pabrik.
+  - Frontend `SalesView.tsx`: Tombol aksi "Kirim ke Antrian Produksi (WO)" kini digantikan dengan pesan informasi bahwa Sales Order berstatus Draft dan harus disetujui (Approve) terlebih dahulu. Aksi approval pada Sales Order diarahkan langsung ke endpoint approve resmi (`/approve`).
+  - Feature test: `test_sales_order_in_draft_cannot_generate_work_orders_until_approved` pada `SalesOrderAutoWorkOrderTest.php`.
 - **Metode Pengadaan Produk (Sourcing Type: Produksi Pabrik vs Beli Jadi Supplier)**:
   - Migrasi `2026_10_09_153500_add_procurement_type_to_products_table.php` menambahkan field `procurement_type` enum string (`manufacture` / `purchase`) dengan default `'manufacture'`, serta menginisialisasi `'purchase'` untuk tipe `raw_material`.
   - Atribut `$fillable` pada `Product.php` dan validasi `MasterDataRequest.php` diperbarui untuk menerima `procurement_type`.

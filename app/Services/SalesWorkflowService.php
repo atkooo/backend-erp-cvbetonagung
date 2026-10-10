@@ -222,7 +222,9 @@ class SalesWorkflowService
                 $salesOrder->forceFill(['total' => max(0, $subtotal - $globalDiscountAmount)])->save();
             }
 
-            $this->autoGenerateWorkOrdersForSalesOrder($salesOrder);
+            if ($salesOrder->status === SalesOrderStatus::Approved->value || $salesOrder->status === 'approved') {
+                $this->autoGenerateWorkOrdersForSalesOrder($salesOrder);
+            }
 
             return $salesOrder->fresh(['customer', 'quotation', 'items.product.unit', 'deliveryOrders']) ?? $salesOrder;
         });
@@ -249,6 +251,10 @@ class SalesWorkflowService
                 [$subtotal] = $this->createLineItems($salesOrder, 'sales-order', $items);
                 $globalDiscountAmount = (float) ($salesOrder->global_discount_amount ?? 0);
                 $salesOrder->forceFill(['total' => max(0, $subtotal - $globalDiscountAmount)])->save();
+            }
+
+            if ($salesOrder->status === SalesOrderStatus::Approved->value || $salesOrder->status === 'approved') {
+                $this->autoGenerateWorkOrdersForSalesOrder($salesOrder);
             }
 
             return $salesOrder->fresh(['customer', 'quotation', 'items.product', 'deliveryOrders']) ?? $salesOrder;
@@ -777,6 +783,10 @@ class SalesWorkflowService
      */
     public function autoGenerateWorkOrdersForSalesOrder(SalesOrder $salesOrder): array
     {
+        if (in_array(strtolower((string) $salesOrder->status), ['draft', 'cancelled', 'dibatalkan'])) {
+            return [];
+        }
+
         $salesOrder->loadMissing(['customer', 'items.product.boms']);
 
         $createdWos = [];

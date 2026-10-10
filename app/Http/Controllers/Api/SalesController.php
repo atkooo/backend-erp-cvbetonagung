@@ -160,8 +160,15 @@ class SalesController extends ApiResourceController
         $salesOrder = SalesOrder::findOrFail($id);
         $wos = $service->autoGenerateWorkOrdersForSalesOrder($salesOrder);
 
+        if (empty($wos)) {
+            return response()->json([
+                'message' => 'Tidak ada item produksi pabrik pada pesanan ini (barang beli jadi / pengadaan supplier).',
+                'data' => [],
+            ]);
+        }
+
         return response()->json([
-            'message' => 'Work order antrian berhasil digenerate',
+            'message' => count($wos).' Work order antrian berhasil digenerate.',
             'data' => $wos,
         ]);
     }

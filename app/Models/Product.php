@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Storage;
     'image',
     'status',
     'discount_id',
+    'procurement_type',
 ])]
 class Product extends Model
 {

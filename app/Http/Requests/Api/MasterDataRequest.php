@@ -89,6 +89,7 @@ class MasterDataRequest extends FormRequest
                 'qr_value' => [...$nullable, 'string', 'max:255', Rule::unique('products', 'qr_value')->ignore($id)],
                 'status' => ['sometimes', Rule::in(['active', 'inactive'])],
                 'discount_id' => [...$nullable, 'uuid', Rule::exists('discounts', 'id')],
+                'procurement_type' => ['sometimes', 'nullable', 'string', Rule::in(['manufacture', 'purchase'])],
             ],
             'company-settings' => [
                 'company_name' => [...$required, 'string', 'max:255'],

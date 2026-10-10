@@ -750,6 +750,18 @@ class SalesWorkflowService
             return false;
         }
 
+        // Pembeda metode pengadaan (Solusi A):
+        // Jika diset 'purchase' (beli jadi dari supplier / trading), BUKAN barang produksi sendiri (tidak dibuatkan WO)
+        if ($product->procurement_type === 'purchase') {
+            return false;
+        }
+
+        // Jika diset 'manufacture' (produksi pabrik sendiri)
+        if ($product->procurement_type === 'manufacture') {
+            return true;
+        }
+
+        // Fallback untuk data legacy / belum terset procurement_type
         if (in_array($product->type, ['finished_good', 'finished_goods', 'manufactured'], true)) {
             return true;
         }

@@ -25,15 +25,16 @@ class SalesOrderAutoWorkOrderTest extends TestCase
     {
         parent::setUp();
 
-        $this->user = User::factory()->create();
-        $this->customer = Customer::create([
-            'name' => 'PT Properti Sentosa',
-            'phone' => '08123456789',
-        ]);
-        $this->unit = Unit::create([
-            'name' => 'Pieces',
-            'code' => 'PCS',
-        ]);
+        $this->seed();
+        $this->user = User::query()->where('email', 'admin@example.com')->firstOrFail();
+        $this->customer = Customer::firstOrCreate(
+            ['name' => 'PT Properti Sentosa'],
+            ['phone' => '08123456789']
+        );
+        $this->unit = Unit::firstOrCreate(
+            ['code' => 'PCS'],
+            ['name' => 'Pieces']
+        );
     }
 
     public function test_sales_order_auto_creates_work_order_for_self_produced_product(): void
@@ -183,13 +184,73 @@ class SalesOrderAutoWorkOrderTest extends TestCase
         // Harus membuat 2 WO meskipun produknya sama, karena beda ukuran/item
         $this->assertCount(2, $wos);
 
-        $wo1 = $wos->firstWhere('source_label', 'like', '%4.1m%');
-        $wo2 = $wos->firstWhere('source_label', 'like', '%3.3m%');
+        $wo1 = $wos->first(fn ($w) => str_contains((string) $w->source_label, '4.1m'));
+        $wo2 = $wos->first(fn ($w) => str_contains((string) $w->source_label, '3.3m'));
 
         $this->assertNotNull($wo1);
         $this->assertNotNull($wo2);
         $this->assertEquals(2, (float) $wo1->target_qty);
         $this->assertEquals(2, (float) $wo2->target_qty);
         $this->assertNotEquals($wo1->id, $wo2->id);
+    }
+
+    public function test_sales_order_distinguishes_manufactured_vs_purchased_products(): void
+    {
+        // 1. Produk barang jadi yang diproduksi sendiri di pabrik (procurement_type: manufacture)
+        $manufacturedProduct = Product::create([
+            'sku' => 'PRD-MFG-001',
+            'name' => 'Box Culvert 100x100',
+            'type' => 'finished_good',
+            'procurement_type' => 'manufacture',
+            'unit_id' => $this->unit->id,
+            'cost_price' => 500000,
+            'selling_price' => 750000,
+            'min_stock' => 5,
+        ]);
+
+        // 2. Produk barang jadi yang dibeli jadi dari supplier / trading (procurement_type: purchase)
+        $purchasedProduct = Product::create([
+            'sku' => 'PRD-PUR-001',
+            'name' => 'Pipa PVC Wavin 4 inch',
+            'type' => 'finished_good',
+            'procurement_type' => 'purchase',
+            'unit_id' => $this->unit->id,
+            'cost_price' => 120000,
+            'selling_price' => 160000,
+            'min_stock' => 20,
+        ]);
+
+        // 3. Buat Sales Order via API
+        $response = $this->actingAs($this->user)->postJson('/api/sales/sales-orders', [
+            'customer_id' => $this->customer->id,
+            'order_date' => date('Y-m-d'),
+            'notes' => 'Pesanan Gabungan Fabrikasi dan Beli Jadi',
+            'items' => [
+                [
+                    'product_id' => $manufacturedProduct->id,
+                    'quantity' => 10,
+                    'unit_price' => 750000,
+                ],
+                [
+                    'product_id' => $purchasedProduct->id,
+                    'quantity' => 50,
+                    'unit_price' => 160000,
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(201);
+        $soId = $response->json('data.id');
+
+        // 4. Pastikan Work Order HANYA terbentuk untuk produk 'manufacture'
+        $wos = ProductionWorkOrder::where('sales_order_id', $soId)->get();
+
+        $this->assertCount(1, $wos);
+        $wo = $wos->first();
+        $this->assertEquals($manufacturedProduct->id, $wo->product_id);
+        $this->assertEquals(10, (float) $wo->target_qty);
+
+        // 5. Pastikan produk 'purchase' TIDAK dibuatkan Work Order
+        $this->assertFalse(ProductionWorkOrder::where('sales_order_id', $soId)->where('product_id', $purchasedProduct->id)->exists());
     }
 }

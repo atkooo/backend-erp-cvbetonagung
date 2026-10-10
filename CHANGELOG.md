@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Metode Pengadaan Produk (Sourcing Type: Produksi Pabrik vs Beli Jadi Supplier)**:
+  - Migrasi `2026_10_09_153500_add_procurement_type_to_products_table.php` menambahkan field `procurement_type` enum string (`manufacture` / `purchase`) dengan default `'manufacture'`, serta menginisialisasi `'purchase'` untuk tipe `raw_material`.
+  - Atribut `$fillable` pada `Product.php` dan validasi `MasterDataRequest.php` diperbarui untuk menerima `procurement_type`.
+  - Logika otomasi Work Order pada `SalesWorkflowService::isSelfProducedProduct()` kini membedakan metode pengadaan secara tegas:
+    - `procurement_type === 'purchase'`: Barang beli jadi dari supplier / trading / resell TIDAK AKAN dibuatkan Work Order (SPK Pabrik) saat Sales Order dibuat atau disetujui.
+    - `procurement_type === 'manufacture'`: Barang produksi pabrik sendiri tetap dibuatkan Work Order (SPK Pabrik) secara otomatis.
+  - Automated feature test: `test_sales_order_distinguishes_manufactured_vs_purchased_products` pada `SalesOrderAutoWorkOrderTest.php` (lolos 100%).
 - **Fitur Ongkos Kirim (Gratis & Berbayar) pada Delivery Order (Surat Jalan)**:
   - Migrasi `2026_10_09_150000_add_shipping_fields_to_delivery_orders_and_invoices_tables.php` menambahkan kolom `shipping_type`, `shipping_cost`, `shipping_payment_type`, `driver_name`, dan `vehicle_number` pada tabel `delivery_orders`, serta `shipping_cost` pada tabel `invoices`.
   - Dukungan jenis ongkos kirim: `Gratis Ongkir` (Rp 0 / ditanggung perusahaan) dan `Berbayar` (dengan nominal rupiah).

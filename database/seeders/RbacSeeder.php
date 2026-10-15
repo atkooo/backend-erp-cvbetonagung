@@ -16,6 +16,7 @@ class RbacSeeder extends Seeder
         'users',
         'roles',
         'employees',
+        'payroll',
         'customers',
         'suppliers',
         'products',
@@ -156,6 +157,23 @@ class RbacSeeder extends Seeder
                 '*' => 'read',
             ],
         ],
+        'employee' => [
+            'name' => 'Karyawan',
+            'description' => 'Akses terbatas untuk karyawan umum: lihat jadwal, absensi, dan informasi diri sendiri.',
+            'modules' => [
+                'reports' => 'read',
+            ],
+        ],
+        'hrd' => [
+            'name' => 'HR Manager',
+            'description' => 'Akses penuh modul HR: karyawan, payroll, absensi, cuti, dan laporan SDM.',
+            'modules' => [
+                'employees' => 'full',
+                'payroll' => 'full',
+                'reports' => 'read',
+                'settings' => 'read',
+            ],
+        ],
     ];
 
     /**
@@ -211,6 +229,16 @@ class RbacSeeder extends Seeder
             'role' => 'viewer',
             'name' => 'Management Viewer',
             'email' => 'viewer@example.com',
+        ],
+        [
+            'role' => 'employee',
+            'name' => 'Karyawan User',
+            'email' => 'employee@example.com',
+        ],
+        [
+            'role' => 'hrd',
+            'name' => 'HR Manager User',
+            'email' => 'hrd@example.com',
         ],
     ];
 

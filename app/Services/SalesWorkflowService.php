@@ -787,6 +787,17 @@ class SalesWorkflowService
             return [];
         }
 
+        // Cek apakah Sales Order sudah memiliki Work Order yang masih aktif (belum dibatalkan).
+        // Jika masih ada yang aktif, batasi agar tidak dibuat ulang (kecuali semua WO dibatalkan).
+        $hasActiveWorkOrders = ProductionWorkOrder::query()
+            ->where('sales_order_id', $salesOrder->id)
+            ->active()
+            ->exists();
+
+        if ($hasActiveWorkOrders) {
+            return [];
+        }
+
         $salesOrder->loadMissing(['customer', 'items.product.boms']);
 
         $createdWos = [];
@@ -797,8 +808,9 @@ class SalesWorkflowService
                 continue;
             }
 
-            // Cek apakah WO untuk item SO ini sudah ada (idempotensi berbasis item)
-            $existingWo = ProductionWorkOrder::query()
+            // Cek apakah WO aktif untuk item SO ini sudah ada (idempotensi berbasis item)
+            $existingActiveWo = ProductionWorkOrder::query()
+                ->active()
                 ->where(function ($query) use ($salesOrder, $item, $product) {
                     $query->where('sales_order_item_id', $item->id)
                         ->orWhere(function ($fallback) use ($salesOrder, $product) {
@@ -809,11 +821,11 @@ class SalesWorkflowService
                 })
                 ->first();
 
-            if ($existingWo !== null) {
-                if (! $existingWo->sales_order_item_id) {
-                    $existingWo->update(['sales_order_item_id' => $item->id]);
+            if ($existingActiveWo !== null) {
+                if (! $existingActiveWo->sales_order_item_id) {
+                    $existingActiveWo->update(['sales_order_item_id' => $item->id]);
                 }
-                $createdWos[] = $existingWo;
+                $createdWos[] = $existingActiveWo;
 
                 continue;
             }

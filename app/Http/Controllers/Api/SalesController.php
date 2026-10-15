@@ -11,6 +11,7 @@ use App\Http\Requests\Api\SalesRequest;
 use App\Http\Requests\Api\ShipDeliveryOrderRequest;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
+use App\Models\ProductionWorkOrder;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\SalesOrder;
@@ -42,7 +43,7 @@ class SalesController extends ApiResourceController
             'model' => SalesOrder::class,
             'searchable' => ['order_number', 'notes'],
             'sortable' => ['order_number', 'order_date', 'status', 'total'],
-            'relations' => ['customer', 'quotation', 'items.product.unit', 'deliveryOrders.items', 'invoices'],
+            'relations' => ['customer', 'quotation', 'items.product.unit', 'deliveryOrders.items', 'invoices', 'productionWorkOrders'],
         ],
         'sales-order-items' => [
             'model' => SalesOrderItem::class,
@@ -168,6 +169,17 @@ class SalesController extends ApiResourceController
         if (in_array(strtolower((string) $salesOrder->status), ['cancelled', 'dibatalkan'])) {
             return response()->json([
                 'message' => 'Sales Order sudah dibatalkan.',
+            ], 422);
+        }
+
+        $hasActiveWorkOrders = ProductionWorkOrder::query()
+            ->where('sales_order_id', $salesOrder->id)
+            ->active()
+            ->exists();
+
+        if ($hasActiveWorkOrders) {
+            return response()->json([
+                'message' => 'Work Order untuk Sales Order ini sudah pernah digenerate dan masih aktif. Tidak dapat digenerate lagi kecuali semua Work Order sebelumnya telah dibatalkan.',
             ], 422);
         }
 

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Penambahan Role `Karyawan` & `HR Manager` ke RbacSeeder**:
+  - Role `employee` (Karyawan) ditambahkan ke `RbacSeeder` dengan akses `read` terbatas pada modul `reports`.
+  - Role `hrd` (HR Manager) ditambahkan ke `RbacSeeder` dengan akses `full` pada modul `employees`, `payroll`, serta `read` pada modul `reports` dan `settings`.
+  - Kedua role sudah ada di database namun belum terdaftar di seeder, sehingga permissions-nya tidak terkonfigurasi. Seeder kini mencakup semua 12 role yang ada: `admin`, `finance`, `sales`, `inventory`, `purchasing`, `billing`, `cashier`, `project`, `production`, `viewer`, `employee`, `hrd`.
+  - Sample users `employee@example.com` dan `hrd@example.com` ditambahkan ke constant `USERS` di seeder.
+- **Penambahan Modul `payroll` ke RBAC Permission Matrix**:
+  - Modul `payroll` ditambahkan ke constant `MODULES` di `RbacSeeder`, menghasilkan 5 permission baru (`view`, `create`, `update`, `delete`, `approve` payroll) — total 80 permissions (16 modul × 5 aksi).
+  - Role `hrd` (HR Manager) dikonfigurasi dengan akses `full` ke modul `payroll`.
+  - Role `admin` dan `viewer` otomatis mendapat akses ke modul `payroll` karena menggunakan wildcard `*`.
+  - Frontend `RolePermissionView.tsx`: `MODULE_LABELS` ditambahkan entri `payroll: 'Penggajian (Payroll)'` agar nama modul tampil dengan benar di RBAC matrix.
+
+
+- **Batasan Generate Work Order dari Sales Order (Mencegah Duplikasi Data WO Aktif)**:
+  - `SalesWorkflowService::autoGenerateWorkOrdersForSalesOrder`: Menambahkan pengecekan status Work Order aktif (`->active()`). Jika Sales Order sudah memiliki Work Order yang masih aktif (belum dibatalkan), sistem tidak akan membuat record Work Order baru (mencegah duplikasi data ganda), kecuali jika seluruh Work Order yang pernah dibuat sebelumnya telah dibatalkan (`stage: cancelled`).
+  - `SalesController::generateWorkOrders`: Endpoint manual trigger `POST /api/sales/sales-orders/{id}/generate-work-orders` mengembalikan status HTTP 422 jika masih terdapat Work Order aktif untuk Sales Order tersebut, dan hanya mengizinkan generate ulang apabila seluruh Work Order terkait telah dibatalkan.
+  - `SalesController`: Menambahkan relasi `productionWorkOrders` pada konfigurasi resource `sales-orders` agar status keterkaitan WO dapat diakses langsung oleh client frontend.
 - **Penyesuaian Batas Pagination Global & Work Order (Menghilangkan Batasan 15 Data)**:
   - `ApiResourceController`, `StockProductionRequestController`, `IdentityController`: Nilai fallback default `per_page` diubah dari 15/20 menjadi **250 records** (dengan batas maksimal 500) pada seluruh endpoint resource ERP (Work Orders, Purchase Orders, Projects, Invoices, Delivery Orders, Stock Requests, BOMs, Roles, dsb) sehingga data tidak lagi terpotong 15 item jika client tidak mengirimkan parameter pagination.
   - `productionApi` (`api.ts`): Parameter `per_page=250` dan `-created_at` ditambahkan pada `getWorkOrders`, `getBoms`, dan `getStockProductionRequests`.

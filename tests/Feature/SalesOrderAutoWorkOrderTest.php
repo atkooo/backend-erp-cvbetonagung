@@ -152,10 +152,20 @@ class SalesOrderAutoWorkOrderTest extends TestCase
         $res1->assertOk();
         $this->assertEquals(1, ProductionWorkOrder::where('sales_order_id', $so->id)->count());
 
-        // Trigger manual kedua kali (tidak boleh duplikasi)
+        // Trigger manual kedua kali (tidak boleh generate lagi selama WO masih aktif)
         $res2 = $this->actingAs($this->user)->postJson("/api/sales/sales-orders/{$so->id}/generate-work-orders");
-        $res2->assertOk();
+        $res2->assertStatus(422);
         $this->assertEquals(1, ProductionWorkOrder::where('sales_order_id', $so->id)->count());
+
+        // Batalkan WO yang ada
+        $existingWo = ProductionWorkOrder::where('sales_order_id', $so->id)->first();
+        $existingWo->update(['stage' => 'cancelled']);
+
+        // Sekarang karena semua WO dibatalkan, dapat digenerate ulang
+        $res3 = $this->actingAs($this->user)->postJson("/api/sales/sales-orders/{$so->id}/generate-work-orders");
+        $res3->assertOk();
+        $this->assertEquals(2, ProductionWorkOrder::where('sales_order_id', $so->id)->count());
+        $this->assertEquals(1, ProductionWorkOrder::where('sales_order_id', $so->id)->active()->count());
     }
 
     public function test_sales_order_with_multiple_items_same_product_different_sizes_creates_multiple_work_orders(): void

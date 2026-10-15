@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Konfigurasi Setup Production cPanel Shared Hosting (`api.cvbetonagung.com` & `app.cvbetonagung.com`)**:
+  - `backend/.env.production`: Mengatur `APP_URL=https://api.cvbetonagung.com` dan menambahkan `https://app.cvbetonagung.com` ke `ALLOWED_ORIGINS`.
+  - `backend/public/.htaccess`: Menambahkan directive `SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1` untuk kompatibilitas penuh header Authorization (Bearer Token) pada cPanel Apache FastCGI/PHP-FPM.
+  - `backend/routes/web.php`: Menambahkan endpoint utilitas `GET /symlink-storage` untuk memudahkan pembuatan symbolic link `storage` pada shared hosting yang tidak menyediakan akses SSH/Terminal.
 - **Penambahan Role `Karyawan` & `HR Manager` ke RbacSeeder**:
   - Role `employee` (Karyawan) ditambahkan ke `RbacSeeder` dengan akses `read` terbatas pada modul `reports`.
   - Role `hrd` (HR Manager) ditambahkan ke `RbacSeeder` dengan akses `full` pada modul `employees`, `payroll`, serta `read` pada modul `reports` dan `settings`.
